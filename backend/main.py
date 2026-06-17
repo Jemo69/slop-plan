@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from tortoise import Tortoise
