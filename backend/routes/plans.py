@@ -36,6 +36,7 @@ class PlanResponse(BaseModel):
     project_id: str
     title: str
     slug: str
+    url: str
     html_content: str
     frontmatter: Optional[dict]
     is_public: bool
@@ -64,6 +65,7 @@ async def list_plans(
                 project_id=str(p.project_id),
                 title=p.title,
                 slug=p.slug,
+                url=f"/p/{p.slug}",
                 html_content=p.html_content,
                 frontmatter=p.frontmatter,
                 is_public=p.is_public,
@@ -85,6 +87,7 @@ async def list_public_plans():
                 project_id=str(p.project_id),
                 title=p.title,
                 slug=p.slug,
+                url=f"/p/{p.slug}",
                 html_content=p.html_content,
                 frontmatter=p.frontmatter,
                 is_public=p.is_public,
@@ -126,6 +129,7 @@ async def create_plan(
         project_id=str(plan.project_id),
         title=plan.title,
         slug=plan.slug,
+        url=f"/p/{plan.slug}",
         html_content=plan.html_content,
         frontmatter=plan.frontmatter,
         is_public=plan.is_public,
@@ -148,6 +152,7 @@ async def get_plan(
         project_id=str(plan.project_id),
         title=plan.title,
         slug=plan.slug,
+        url=f"/p/{plan.slug}",
         html_content=plan.html_content,
         frontmatter=plan.frontmatter,
         is_public=plan.is_public,
@@ -182,6 +187,7 @@ async def update_plan(
         project_id=str(plan.project_id),
         title=plan.title,
         slug=plan.slug,
+        url=f"/p/{plan.slug}",
         html_content=plan.html_content,
         frontmatter=plan.frontmatter,
         is_public=plan.is_public,
@@ -219,6 +225,7 @@ async def publish_plan(
         project_id=str(plan.project_id),
         title=plan.title,
         slug=plan.slug,
+        url=f"/p/{plan.slug}",
         html_content=plan.html_content,
         frontmatter=plan.frontmatter,
         is_public=plan.is_public,
@@ -244,6 +251,7 @@ async def unpublish_plan(
         project_id=str(plan.project_id),
         title=plan.title,
         slug=plan.slug,
+        url=f"/p/{plan.slug}",
         html_content=plan.html_content,
         frontmatter=plan.frontmatter,
         is_public=plan.is_public,

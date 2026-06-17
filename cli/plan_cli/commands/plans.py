@@ -43,8 +43,7 @@ def create(
         console.print(f"[green]Plan created successfully![/green]")
         console.print(f"ID: [bold]{result['id']}[/bold]")
         console.print(f"Slug: {result['slug']}")
-        if result["is_public"]:
-            console.print(f"URL: [link]{result['slug']}[/link]")
+        console.print(f"URL: [link]{result['url']}[/link]")
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -67,7 +66,7 @@ def list_plans(
         table = Table(title="Plans")
         table.add_column("ID", style="cyan")
         table.add_column("Title", style="green")
-        table.add_column("Slug", style="blue")
+        table.add_column("URL", style="blue")
         table.add_column("Public", justify="center")
         table.add_column("Updated", style="dim")
         
@@ -75,7 +74,7 @@ def list_plans(
             table.add_row(
                 plan["id"][:8] + "...",
                 plan["title"],
-                plan["slug"],
+                plan["url"],
                 "✓" if plan["is_public"] else "✗",
                 plan["updated_at"][:10],
             )
@@ -98,7 +97,7 @@ def get(
         
         console.print(f"[bold]Title:[/bold] {plan['title']}")
         console.print(f"[bold]ID:[/bold] {plan['id']}")
-        console.print(f"[bold]Slug:[/bold] {plan['slug']}")
+        console.print(f"[bold]URL:[/bold] [link]{plan['url']}[/link]")
         console.print(f"[bold]Public:[/bold] {'Yes' if plan['is_public'] else 'No'}")
         console.print(f"[bold]Created:[/bold] {plan['created_at']}")
         console.print(f"[bold]Updated:[/bold] {plan['updated_at']}")
@@ -144,7 +143,7 @@ def update(
         result = asyncio.run(api.update_plan(plan_id, **updates))
         console.print(f"[green]Plan updated successfully![/green]")
         console.print(f"ID: [bold]{result['id']}[/bold]")
-        console.print(f"Slug: {result['slug']}")
+        console.print(f"URL: [link]{result['url']}[/link]")
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -182,7 +181,7 @@ def publish(
     try:
         result = asyncio.run(api.publish_plan(plan_id))
         console.print(f"[green]Plan published![/green]")
-        console.print(f"URL: [link]{result['slug']}[/link]")
+        console.print(f"URL: [link]{result['url']}[/link]")
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)

@@ -74,26 +74,10 @@ class LibSQLClient(BaseDBAsyncClient):
 
     async def create_connection(self, with_db: bool) -> None:
         if not self._connection:
-            if self.auth_token:
-                self._connection = LibSQLConnection(self.filename, self.auth_token)
-                self.log.debug("Connected to Turso via HTTP: %s", self.filename)
-            else:
-                import libsql_experimental as libsql
-                def _connect():
-                    return libsql.connect(database=self.filename)
-                raw_conn = await asyncio.to_thread(_connect)
-                self._connection = LibSQLConnection(raw_conn)
-                self._connection.row_factory = sqlite3.Row
-
-                for pragma, val in self.pragmas.items():
-                    cursor = await self._connection.execute(f"PRAGMA {pragma}={val}")
-                    await cursor.close()
+            self._connection = LibSQLConnection(self.filename, self.auth_token)
+            self.log.debug("Connected to Turso via HTTP: %s", self.filename)
 
             await self._post_connect()
-            self.log.debug(
-                "Created libsql connection with params: filename=%s",
-                self.filename,
-            )
 
     async def close(self) -> None:
         if self._connection:
