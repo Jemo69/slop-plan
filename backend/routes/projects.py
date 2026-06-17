@@ -18,9 +18,6 @@ class ProjectResponse(BaseModel):
     description: Optional[str]
     created_at: str
 
-    class Config:
-        from_attributes = True
-
 
 class ProjectListResponse(BaseModel):
     projects: List[ProjectResponse]
@@ -68,7 +65,7 @@ async def get_project(
     project = await Project.filter(id=project_id, user=user).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     return ProjectResponse(
         id=str(project.id),
         name=project.name,
@@ -85,5 +82,5 @@ async def delete_project(
     project = await Project.filter(id=project_id, user=user).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     await project.delete()

@@ -26,33 +26,33 @@ def generate_api_key() -> str:
 async def get_current_user(authorization: str = Header(None)) -> User:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
-    
+
     api_key = authorization.replace("Bearer ", "")
     user = await User.filter(api_key=api_key).first()
-    
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    
+
     return user
 
 
-@router.post("/register", response_model=AuthResponse)
+@router.post("/register", response_model=AuthResponse, status_code=201)
 async def register(request: RegisterRequest):
     existing = await User.filter(email=request.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     api_key = generate_api_key()
     user = await User.create(email=request.email, api_key=api_key)
-    
+
     return AuthResponse(api_key=user.api_key, email=user.email)
 
 
 @router.post("/login", response_model=AuthResponse)
 async def login(request: LoginRequest):
     user = await User.filter(email=request.email).first()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     return AuthResponse(api_key=user.api_key, email=user.email)

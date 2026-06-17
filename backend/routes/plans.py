@@ -1,5 +1,4 @@
 import re
-import secrets
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -43,9 +42,6 @@ class PlanResponse(BaseModel):
     created_at: str
     updated_at: str
 
-    class Config:
-        from_attributes = True
-
 
 class PlanListResponse(BaseModel):
     plans: List[PlanResponse]
@@ -59,7 +55,7 @@ async def list_plans(
     query = Plan.filter(project__user=user)
     if project_id:
         query = query.filter(project_id=project_id)
-    
+
     plans = await query.all()
     return PlanListResponse(
         plans=[
@@ -108,14 +104,14 @@ async def create_plan(
     project = await Project.filter(id=request.project_id, user=user).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     base_slug = slugify(request.title)
     slug = base_slug
     counter = 1
     while await Plan.filter(slug=slug).first():
         slug = f"{base_slug}-{counter}"
         counter += 1
-    
+
     plan = await Plan.create(
         project=project,
         title=request.title,
@@ -124,7 +120,7 @@ async def create_plan(
         frontmatter=request.frontmatter,
         is_public=request.is_public,
     )
-    
+
     return PlanResponse(
         id=str(plan.id),
         project_id=str(plan.project_id),
@@ -146,7 +142,7 @@ async def get_plan(
     plan = await Plan.filter(id=plan_id, project__user=user).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     return PlanResponse(
         id=str(plan.id),
         project_id=str(plan.project_id),
@@ -169,7 +165,7 @@ async def update_plan(
     plan = await Plan.filter(id=plan_id, project__user=user).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     if request.title is not None:
         plan.title = request.title
     if request.html_content is not None:
@@ -178,9 +174,9 @@ async def update_plan(
         plan.frontmatter = request.frontmatter
     if request.is_public is not None:
         plan.is_public = request.is_public
-    
+
     await plan.save()
-    
+
     return PlanResponse(
         id=str(plan.id),
         project_id=str(plan.project_id),
@@ -202,30 +198,8 @@ async def delete_plan(
     plan = await Plan.filter(id=plan_id, project__user=user).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     await plan.delete()
-
-
-@router.get("/by-slug/{slug}", response_model=PlanResponse)
-async def get_plan_by_slug(
-    slug: str,
-    user: User = Depends(get_current_user),
-):
-    plan = await Plan.filter(slug=slug, project__user=user).first()
-    if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
-    
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
 
 
 @router.post("/{plan_id}/publish", response_model=PlanResponse)
@@ -236,10 +210,10 @@ async def publish_plan(
     plan = await Plan.filter(id=plan_id, project__user=user).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     plan.is_public = True
     await plan.save()
-    
+
     return PlanResponse(
         id=str(plan.id),
         project_id=str(plan.project_id),
@@ -261,10 +235,10 @@ async def unpublish_plan(
     plan = await Plan.filter(id=plan_id, project__user=user).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     plan.is_public = False
     await plan.save()
-    
+
     return PlanResponse(
         id=str(plan.id),
         project_id=str(plan.project_id),

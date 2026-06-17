@@ -5,11 +5,31 @@ CLI tool for HTML Plan Service - Create, manage, and share HTML plans.
 ## Installation
 
 ```bash
+# One-line install
+curl -sSL https://raw.githubusercontent.com/Jemo69/html-planner-server/main/cli/install.sh | bash
+```
+
+Or manually:
+
+```bash
 cd cli
 uv sync
 ```
 
 ## Usage
+
+### Configuration
+
+```bash
+# Show current config
+plan config show
+
+# Set API URL
+plan config set --api-url https://html-planner-server.fly.dev
+
+# Get current API URL
+plan config get
+```
 
 ### Authentication
 
