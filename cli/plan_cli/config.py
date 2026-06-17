@@ -23,7 +23,7 @@ def get_api_key() -> str | None:
 
 def get_api_url() -> str:
     config = load_config()
-    return config.get("api_url", "http://localhost:8000")
+    return config.get("api_url", "https://html-planner-server.vercel.app")
 
 
 def set_api_key(api_key: str) -> None:
