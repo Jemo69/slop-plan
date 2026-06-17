@@ -11,7 +11,7 @@ app = typer.Typer(help="Authentication commands")
 @app.command()
 def init(
     email: str = typer.Option(..., prompt=True, help="Your email address"),
-    api_url: str = typer.Option("http://localhost:8000", help="API server URL"),
+    api_url: str = typer.Option("https://html-planner-server.vercel.app", help="API server URL"),
 ):
     """Initialize plan CLI with your account."""
     set_api_url(api_url)
@@ -43,7 +43,7 @@ def init(
 @app.command()
 def login(
     email: str = typer.Option(..., prompt=True, help="Your email address"),
-    api_url: str = typer.Option("http://localhost:8000", help="API server URL"),
+    api_url: str = typer.Option("https://html-planner-server.vercel.app", help="API server URL"),
 ):
     """Login to an existing account."""
     set_api_url(api_url)
