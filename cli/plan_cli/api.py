@@ -9,6 +9,13 @@ class PlanAPIError(Exception):
         super().__init__(f"API Error {status_code}: {detail}")
 
 
+def _get_error_detail(response: httpx.Response) -> str:
+    try:
+        return response.json().get("detail", response.text or "Unknown error")
+    except Exception:
+        return response.text or "Unknown error"
+
+
 class PlanAPI:
     def __init__(self):
         self.base_url = get_api_url()
@@ -31,7 +38,7 @@ class PlanAPI:
                 json={"email": email},
             )
             if response.status_code != 201:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def login(self, email: str) -> dict:
@@ -41,7 +48,7 @@ class PlanAPI:
                 json={"email": email},
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def list_projects(self) -> list:
@@ -52,7 +59,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json().get("projects", [])
     
     async def create_project(self, name: str, description: str = None) -> dict:
@@ -64,7 +71,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 201:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def list_plans(self, project_id: str = None) -> list:
@@ -79,7 +86,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json().get("plans", [])
     
     async def get_plan(self, plan_id: str) -> dict:
@@ -90,7 +97,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def create_plan(self, project_id: str, title: str, html_content: str, frontmatter: dict = None, is_public: bool = False) -> dict:
@@ -108,7 +115,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 201:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def update_plan(self, plan_id: str, **kwargs) -> dict:
@@ -120,7 +127,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def delete_plan(self, plan_id: str) -> None:
@@ -131,7 +138,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 204:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
     
     async def publish_plan(self, plan_id: str) -> dict:
         self._check_auth()
@@ -141,7 +148,7 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
     
     async def unpublish_plan(self, plan_id: str) -> dict:
@@ -152,5 +159,5 @@ class PlanAPI:
                 headers=self._headers(),
             )
             if response.status_code != 200:
-                raise PlanAPIError(response.status_code, response.json().get("detail", "Unknown error"))
+                raise PlanAPIError(response.status_code, _get_error_detail(response))
             return response.json()
