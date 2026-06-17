@@ -1,0 +1,19 @@
+[project]
+name = "plan-cli"
+version = "0.1.0"
+description = "CLI tool for HTML Plan Service"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.0",
+    "rich>=13.0.0",
+    "typer>=0.12.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.scripts]
+plan = "plan_cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
