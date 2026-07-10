@@ -89,9 +89,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 <div id="login-view" class="login-box" style="display:none;">
   <h2>Plan Dashboard</h2>
-  <input type="text" id="api-key-input" placeholder="Paste your API key (plan_...)" />
-  <button onclick="doLogin()">Connect</button>
-  <p class="hint">Get your key with: <code>plan auth init</code></p>
+  <input type="email" id="email-input" placeholder="you@example.com" />
+  <button onclick="doLogin()">Login / Register</button>
+  <p class="hint">Enter your email to login or create an account</p>
 </div>
 
 <div id="app-view" style="display:none;">
@@ -125,6 +125,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <script>
 const API = window.location.origin;
 let apiKey = localStorage.getItem('plan_api_key');
+let userEmail = localStorage.getItem('plan_email');
 
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -143,16 +144,60 @@ function headers() {
 }
 
 async function doLogin() {
-  const input = document.getElementById('api-key-input');
-  apiKey = input.value.trim();
-  if (!apiKey) return;
-  localStorage.setItem('plan_api_key', apiKey);
-  loadPlans();
+  const input = document.getElementById('email-input');
+  const email = input.value.trim();
+  if (!email || !email.includes('@')) {
+    toast('Enter a valid email');
+    return;
+  }
+
+  // Try login first
+  try {
+    const res = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      apiKey = data.api_key;
+      userEmail = email;
+      localStorage.setItem('plan_api_key', apiKey);
+      localStorage.setItem('plan_email', email);
+      loadPlans();
+      return;
+    }
+  } catch (e) { /* fall through to register */ }
+
+  // Not registered — create account
+  try {
+    const res = await fetch(API + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      apiKey = data.api_key;
+      userEmail = email;
+      localStorage.setItem('plan_api_key', apiKey);
+      localStorage.setItem('plan_email', email);
+      toast('Account created!');
+      loadPlans();
+      return;
+    }
+    const err = await res.json().catch(() => ({}));
+    toast(err.detail || 'Login failed');
+  } catch (e) {
+    toast('Connection error');
+  }
 }
 
 function doLogout() {
   localStorage.removeItem('plan_api_key');
+  localStorage.removeItem('plan_email');
   apiKey = null;
+  userEmail = null;
   show('login-view');
 }
 
@@ -165,6 +210,7 @@ function showError(msg) {
 async function loadPlans() {
   if (!apiKey) { show('login-view'); return; }
   show('app-view');
+  document.getElementById('user-email').textContent = userEmail || '';
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('plan-list').innerHTML = '<div class="loading">Loading plans...</div>';
 
