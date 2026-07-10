@@ -117,14 +117,19 @@ async def create_plan(
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    plan = await Plan.create(
-        project_id=project.id,
-        title=request.title,
-        slug=slug,
-        html_content=request.html_content,
-        frontmatter=request.frontmatter,
-        is_public=request.is_public,
-    )
+    try:
+        plan = await Plan.create(
+            project_id=project.id,
+            title=request.title,
+            slug=slug,
+            html_content=request.html_content,
+            frontmatter=request.frontmatter,
+            is_public=request.is_public,
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
     return to_response(plan)
 
