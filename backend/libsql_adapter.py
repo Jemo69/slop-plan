@@ -127,10 +127,22 @@ class LibSQLConnection:
             stmt["args"] = args
         return stmt
 
+    @staticmethod
+    def _sanitize_sql(sql: str) -> str:
+        import re
+        sql = re.sub(r'=\s*True\b', '= 1', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'=\s*False\b', '= 0', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'IS\s+True\b', '= 1', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'IS\s+False\b', '= 0', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'IS\s+NOT\s+True\b', '!= 1', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'IS\s+NOT\s+False\b', '!= 0', sql, flags=re.IGNORECASE)
+        return sql
+
     async def execute(self, sql: str, parameters: tuple | list | None = None):
         if parameters is None:
             parameters = ()
 
+        sql = self._sanitize_sql(sql)
         stmt = self._build_stmt(sql, parameters)
         result = await self._execute_pipeline([{"type": "execute", "stmt": stmt}])
 
