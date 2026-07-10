@@ -4,8 +4,8 @@ from tortoise import fields, models
 
 class User(models.Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    email = fields.CharField(max_length=255, unique=True)
-    api_key = fields.CharField(max_length=255, unique=True)
+    email = fields.CharField(max_length=255, unique=True, index=True)
+    api_key = fields.CharField(max_length=255, unique=True, index=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -17,7 +17,7 @@ class User(models.Model):
 
 class Project(models.Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    user = fields.ForeignKeyField("models.User", related_name="projects")
+    user = fields.ForeignKeyField("models.User", related_name="projects", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -31,9 +31,9 @@ class Project(models.Model):
 
 class Plan(models.Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    project = fields.ForeignKeyField("models.Project", related_name="plans")
+    project = fields.ForeignKeyField("models.Project", related_name="plans", on_delete=fields.CASCADE)
     title = fields.CharField(max_length=255)
-    slug = fields.CharField(max_length=255, unique=True)
+    slug = fields.CharField(max_length=255, unique=True, index=True)
     html_content = fields.TextField()
     frontmatter = fields.JSONField(null=True)
     is_public = fields.BooleanField(default=False)

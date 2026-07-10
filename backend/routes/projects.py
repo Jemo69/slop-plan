@@ -25,14 +25,14 @@ class ProjectListResponse(BaseModel):
 
 @router.get("", response_model=ProjectListResponse)
 async def list_projects(user: User = Depends(get_current_user)):
-    projects = await Project.filter(user=user).all()
+    projects = await Project.filter(user_id=user.id).all()
     return ProjectListResponse(
         projects=[
             ProjectResponse(
                 id=str(p.id),
                 name=p.name,
                 description=p.description,
-                created_at=p.created_at.isoformat(),
+                created_at=p.created_at.isoformat() if p.created_at else "",
             )
             for p in projects
         ]
@@ -45,7 +45,7 @@ async def create_project(
     user: User = Depends(get_current_user),
 ):
     project = await Project.create(
-        user=user,
+        user_id=user.id,
         name=request.name,
         description=request.description,
     )
@@ -53,7 +53,7 @@ async def create_project(
         id=str(project.id),
         name=project.name,
         description=project.description,
-        created_at=project.created_at.isoformat(),
+        created_at=project.created_at.isoformat() if project.created_at else "",
     )
 
 
@@ -62,7 +62,7 @@ async def get_project(
     project_id: str,
     user: User = Depends(get_current_user),
 ):
-    project = await Project.filter(id=project_id, user=user).first()
+    project = await Project.filter(id=project_id, user_id=user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -70,7 +70,7 @@ async def get_project(
         id=str(project.id),
         name=project.name,
         description=project.description,
-        created_at=project.created_at.isoformat(),
+        created_at=project.created_at.isoformat() if project.created_at else "",
     )
 
 
@@ -79,7 +79,7 @@ async def delete_project(
     project_id: str,
     user: User = Depends(get_current_user),
 ):
-    project = await Project.filter(id=project_id, user=user).first()
+    project = await Project.filter(id=project_id, user_id=user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 

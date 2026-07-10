@@ -6,24 +6,27 @@ console = Console()
 app = typer.Typer(help="Configuration commands")
 
 
-@app.command()
+@app.command("show")
 def show():
-    """Show current configuration."""
     config = load_config()
-    console.print(f"API URL: {config.get('api_url', 'http://localhost:8000')}")
-    console.print(f"API Key: {'set' if config.get('api_key') else 'not set'}")
+    api_url = config.get('api_url', 'http://localhost:8000')
+    has_key = bool(config.get('api_key'))
+    console.print(f"API URL: {api_url}")
+    console.print(f"API Key: {'set' if has_key else 'not set'}")
+    console.print(f"Config file: {config}")
 
 
-@app.command()
-def set(
-    api_url: str = typer.Option(..., help="API server URL"),
+@app.command("set")
+def set_cmd(
+    api_url: str = typer.Option(None, "--api-url", help="API server URL"),
 ):
-    """Set the API URL."""
+    if not api_url:
+        console.print("[red]--api-url is required[/red]")
+        raise typer.Exit(1)
     set_api_url(api_url)
     console.print(f"[green]API URL set to: {api_url}[/green]")
 
 
-@app.command()
+@app.command("get")
 def get():
-    """Get the current API URL."""
     console.print(get_api_url())
