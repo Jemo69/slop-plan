@@ -1,23 +1,27 @@
 import secrets
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from models import User
+from services import hash_password, verify_password
 
 router = APIRouter()
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    password: str = Field(min_length=6)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
+    password: str
 
 
 class AuthResponse(BaseModel):
     api_key: str
     email: str
     user_id: str
+    has_password: bool
 
 
 def generate_api_key() -> str:
@@ -46,9 +50,15 @@ async def register(request: RegisterRequest):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     api_key = generate_api_key()
-    user = await User.create(email=request.email, api_key=api_key)
+    password_hash = hash_password(request.password)
+    user = await User.create(email=request.email, api_key=api_key, password_hash=password_hash)
 
-    return AuthResponse(api_key=user.api_key, email=user.email, user_id=str(user.id))
+    return AuthResponse(
+        api_key=user.api_key,
+        email=user.email,
+        user_id=str(user.id),
+        has_password=True,
+    )
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -57,4 +67,15 @@ async def login(request: LoginRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return AuthResponse(api_key=user.api_key, email=user.email, user_id=str(user.id))
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="Account has no password set")
+
+    if not verify_password(request.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    return AuthResponse(
+        api_key=user.api_key,
+        email=user.email,
+        user_id=str(user.id),
+        has_password=True,
+    )

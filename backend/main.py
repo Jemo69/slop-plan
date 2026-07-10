@@ -61,16 +61,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .plan-list { display: flex; flex-direction: column; gap: 8px; }
   .plan-card { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; transition: border-color 0.15s; }
   .plan-card:hover { border-color: #6c5ce7; }
+  .plan-card.approved { border-color: #10b981; }
   .plan-info { flex: 1; }
   .plan-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; }
   .plan-meta { font-size: 12px; color: #666; }
+  .plan-meta .approved-info { color: #10b981; margin-left: 8px; }
   .plan-actions { display: flex; gap: 8px; align-items: center; }
   .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
   .badge.public { background: #1b4332; color: #52b788; }
   .badge.private { background: #3d1f1f; color: #e07070; }
+  .badge.approved { background: #064e3b; color: #10b981; }
+  .badge.pending { background: #78350f; color: #fbbf24; }
   .btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid #444; text-decoration: none; }
   .btn-view { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
   .btn-view:hover { background: #5a4bd1; }
+  .btn-approve { background: #10b981; color: #fff; border-color: #10b981; }
+  .btn-approve:hover { background: #059669; }
+  .btn-unapprove { background: transparent; color: #fbbf24; border-color: #fbbf24; }
+  .btn-unapprove:hover { background: #78350f; }
   .btn-delete { background: transparent; color: #e07070; border-color: #5a3030; }
   .btn-delete:hover { background: #3d1f1f; }
   .empty { text-align: center; padding: 60px 20px; color: #666; }
@@ -151,7 +159,6 @@ async function doLogin() {
     return;
   }
 
-  // Try login first
   try {
     const res = await fetch(API + '/api/auth/login', {
       method: 'POST',
@@ -167,9 +174,8 @@ async function doLogin() {
       loadPlans();
       return;
     }
-  } catch (e) { /* fall through to register */ }
+  } catch (e) { }
 
-  // Not registered — create account
   try {
     const res = await fetch(API + '/api/auth/register', {
       method: 'POST',
@@ -240,10 +246,14 @@ function renderPlans(plans) {
   const stats = document.getElementById('stats');
 
   const publicCount = plans.filter(p => p.is_public).length;
+  const approvedCount = plans.filter(p => p.is_approved).length;
+  const pendingCount = plans.filter(p => !p.is_approved).length;
+  
   stats.innerHTML =
     '<div class="stat"><div class="num">' + plans.length + '</div><div class="label">Total Plans</div></div>' +
-    '<div class="stat"><div class="num">' + publicCount + '</div><div class="label">Public</div></div>' +
-    '<div class="stat"><div class="num">' + (plans.length - publicCount) + '</div><div class="label">Private</div></div>';
+    '<div class="stat"><div class="num" style="color:#10b981">' + approvedCount + '</div><div class="label">Approved</div></div>' +
+    '<div class="stat"><div class="num" style="color:#fbbf24">' + pendingCount + '</div><div class="label">Pending</div></div>' +
+    '<div class="stat"><div class="num">' + publicCount + '</div><div class="label">Public</div></div>';
 
   if (plans.length === 0) {
     show('empty-view');
@@ -252,14 +262,24 @@ function renderPlans(plans) {
 
   list.innerHTML = plans.map(p => {
     const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '';
-    const badge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
-    return '<div class="plan-card">' +
+    const publicBadge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
+    const approvedBadge = p.is_approved ? '<span class="badge approved">Approved</span>' : '<span class="badge pending">Pending</span>';
+    const approvedClass = p.is_approved ? ' approved' : '';
+    const approvedInfo = p.is_approved && p.approved_by ? '<span class="approved-info">by ' + esc(p.approved_by) + '</span>' : '';
+    
+    const approveBtn = p.is_approved
+      ? '<button class="btn btn-unapprove" onclick="unapprovePlan(\\'' + p.id + '\\')">Unapprove</button>'
+      : '<button class="btn btn-approve" onclick="approvePlan(\\'' + p.id + '\\')">Approve</button>';
+    
+    return '<div class="plan-card' + approvedClass + '">' +
       '<div class="plan-info">' +
         '<div class="plan-title">' + esc(p.title) + '</div>' +
-        '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + '</div>' +
+        '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + approvedInfo + '</div>' +
       '</div>' +
       '<div class="plan-actions">' +
-        badge +
+        publicBadge +
+        approvedBadge +
+        approveBtn +
         '<button class="btn btn-view" onclick="preview(\\'' + p.id + '\\', ' + p.is_public + ', \\'' + esc(p.slug) + '\\')">View</button>' +
         '<button class="btn btn-delete" onclick="delPlan(\\'' + p.id + '\\')">Delete</button>' +
       '</div>' +
@@ -294,6 +314,42 @@ async function preview(id, isPublic, slug) {
 function closePreview() {
   document.getElementById('preview-modal').classList.remove('open');
   document.getElementById('preview-frame').srcdoc = '';
+}
+
+async function approvePlan(id) {
+  try {
+    const res = await fetch(API + '/api/plans/' + id + '/approve', {
+      method: 'POST',
+      headers: headers()
+    });
+    if (res.ok) {
+      toast('Plan approved!');
+      loadPlans();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(err.detail || 'Approve failed');
+    }
+  } catch (e) {
+    toast('Approve failed');
+  }
+}
+
+async function unapprovePlan(id) {
+  try {
+    const res = await fetch(API + '/api/plans/' + id + '/unapprove', {
+      method: 'POST',
+      headers: headers()
+    });
+    if (res.ok) {
+      toast('Plan unapproved');
+      loadPlans();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(err.detail || 'Unapprove failed');
+    }
+  } catch (e) {
+    toast('Unapprove failed');
+  }
 }
 
 async function delPlan(id) {

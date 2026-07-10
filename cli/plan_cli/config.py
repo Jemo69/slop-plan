@@ -44,3 +44,20 @@ def set_api_url(api_url: str) -> None:
     config = load_config()
     config["api_url"] = api_url.rstrip("/")
     save_config(config)
+
+
+def clear_api_key() -> None:
+    config = load_config()
+    config.pop("api_key", None)
+    save_config(config)
+
+
+def get_email() -> str | None:
+    config = load_config()
+    return config.get("email")
+
+
+def set_email(email: str) -> None:
+    config = load_config()
+    config["email"] = email
+    save_config(config)
