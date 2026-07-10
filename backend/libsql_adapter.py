@@ -7,7 +7,7 @@ def _infer_turso_type(value: Any) -> tuple[str, Any]:
     if value is None:
         return "null", None
     if isinstance(value, bool):
-        return "integer", int(value)
+        return "integer", str(int(value))
     if isinstance(value, int):
         return "integer", str(value)
     if isinstance(value, float):
