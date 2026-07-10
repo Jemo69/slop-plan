@@ -1,6 +1,6 @@
 import re
+import uuid
 from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from models import User, Project, Plan
@@ -13,7 +13,7 @@ def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"[-\s]+", "-", text)
-    return text[:50]
+    return text[:50].strip("-") or f"plan-{uuid.uuid4().hex[:8]}"
 
 
 class PlanCreate(BaseModel):
@@ -48,55 +48,52 @@ class PlanListResponse(BaseModel):
     plans: List[PlanResponse]
 
 
+def to_response(p: Plan) -> PlanResponse:
+    pid = str(p.project_id) if hasattr(p, "project_id") else ""
+    if not pid and hasattr(p, "project"):
+        try:
+            pid = str(p.project.id) if hasattr(p.project, "id") else ""
+        except Exception:
+            pid = ""
+    return PlanResponse(
+        id=str(p.id),
+        project_id=pid,
+        title=p.title,
+        slug=p.slug,
+        url=f"/p/{p.slug}",
+        html_content=p.html_content,
+        frontmatter=p.frontmatter,
+        is_public=p.is_public,
+        created_at=p.created_at.isoformat() if p.created_at else "",
+        updated_at=p.updated_at.isoformat() if p.updated_at else "",
+    )
+
+
 @router.get("", response_model=PlanListResponse)
 async def list_plans(
     project_id: Optional[str] = Query(None),
+    public: Optional[bool] = Query(None, description="filter public plans"),
     user: User = Depends(get_current_user),
 ):
-    query = Plan.filter(project__user=user)
+    if public:
+        query = Plan.filter(is_public=True)
+        if project_id:
+            query = query.filter(project_id=project_id)
+        plans = await query.all()
+        return PlanListResponse(plans=[to_response(p) for p in plans])
+
+    query = Plan.filter(project__user_id=user.id)
     if project_id:
         query = query.filter(project_id=project_id)
 
     plans = await query.all()
-    return PlanListResponse(
-        plans=[
-            PlanResponse(
-                id=str(p.id),
-                project_id=str(p.project_id),
-                title=p.title,
-                slug=p.slug,
-                url=f"/p/{p.slug}",
-                html_content=p.html_content,
-                frontmatter=p.frontmatter,
-                is_public=p.is_public,
-                created_at=p.created_at.isoformat(),
-                updated_at=p.updated_at.isoformat(),
-            )
-            for p in plans
-        ]
-    )
+    return PlanListResponse(plans=[to_response(p) for p in plans])
 
 
 @router.get("/public", response_model=PlanListResponse)
 async def list_public_plans():
     plans = await Plan.filter(is_public=True).all()
-    return PlanListResponse(
-        plans=[
-            PlanResponse(
-                id=str(p.id),
-                project_id=str(p.project_id),
-                title=p.title,
-                slug=p.slug,
-                url=f"/p/{p.slug}",
-                html_content=p.html_content,
-                frontmatter=p.frontmatter,
-                is_public=p.is_public,
-                created_at=p.created_at.isoformat(),
-                updated_at=p.updated_at.isoformat(),
-            )
-            for p in plans
-        ]
-    )
+    return PlanListResponse(plans=[to_response(p) for p in plans])
 
 
 @router.post("", response_model=PlanResponse, status_code=201)
@@ -104,7 +101,12 @@ async def create_plan(
     request: PlanCreate,
     user: User = Depends(get_current_user),
 ):
-    project = await Project.filter(id=request.project_id, user=user).first()
+    try:
+        uuid.UUID(request.project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid project_id format")
+
+    project = await Project.filter(id=request.project_id, user_id=user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -116,7 +118,7 @@ async def create_plan(
         counter += 1
 
     plan = await Plan.create(
-        project=project,
+        project_id=project.id,
         title=request.title,
         slug=slug,
         html_content=request.html_content,
@@ -124,18 +126,7 @@ async def create_plan(
         is_public=request.is_public,
     )
 
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        url=f"/p/{plan.slug}",
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
+    return to_response(plan)
 
 
 @router.get("/{plan_id}", response_model=PlanResponse)
@@ -143,22 +134,16 @@ async def get_plan(
     plan_id: str,
     user: User = Depends(get_current_user),
 ):
-    plan = await Plan.filter(id=plan_id, project__user=user).first()
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        url=f"/p/{plan.slug}",
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
+    return to_response(plan)
 
 
 @router.put("/{plan_id}", response_model=PlanResponse)
@@ -167,7 +152,12 @@ async def update_plan(
     request: PlanUpdate,
     user: User = Depends(get_current_user),
 ):
-    plan = await Plan.filter(id=plan_id, project__user=user).first()
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -182,18 +172,7 @@ async def update_plan(
 
     await plan.save()
 
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        url=f"/p/{plan.slug}",
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
+    return to_response(plan)
 
 
 @router.delete("/{plan_id}", status_code=204)
@@ -201,7 +180,12 @@ async def delete_plan(
     plan_id: str,
     user: User = Depends(get_current_user),
 ):
-    plan = await Plan.filter(id=plan_id, project__user=user).first()
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -213,25 +197,19 @@ async def publish_plan(
     plan_id: str,
     user: User = Depends(get_current_user),
 ):
-    plan = await Plan.filter(id=plan_id, project__user=user).first()
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
     plan.is_public = True
     await plan.save()
 
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        url=f"/p/{plan.slug}",
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
+    return to_response(plan)
 
 
 @router.post("/{plan_id}/unpublish", response_model=PlanResponse)
@@ -239,22 +217,16 @@ async def unpublish_plan(
     plan_id: str,
     user: User = Depends(get_current_user),
 ):
-    plan = await Plan.filter(id=plan_id, project__user=user).first()
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
     plan.is_public = False
     await plan.save()
 
-    return PlanResponse(
-        id=str(plan.id),
-        project_id=str(plan.project_id),
-        title=plan.title,
-        slug=plan.slug,
-        url=f"/p/{plan.slug}",
-        html_content=plan.html_content,
-        frontmatter=plan.frontmatter,
-        is_public=plan.is_public,
-        created_at=plan.created_at.isoformat(),
-        updated_at=plan.updated_at.isoformat(),
-    )
+    return to_response(plan)

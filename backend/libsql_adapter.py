@@ -3,9 +3,19 @@ from typing import Any
 import httpx
 
 
-class LibSQLRow:
-    """sqlite3.Row-compatible row object from Turso HTTP API."""
+def _infer_turso_type(value: Any) -> tuple[str, Any]:
+    if value is None:
+        return "null", None
+    if isinstance(value, bool):
+        return "integer", int(value)
+    if isinstance(value, int):
+        return "integer", str(value)
+    if isinstance(value, float):
+        return "float", value
+    return "text", str(value)
 
+
+class LibSQLRow:
     def __init__(self, columns: list[dict], values: list):
         self._columns = [c["name"] for c in columns]
         self._values = values
@@ -33,8 +43,6 @@ class LibSQLRow:
 
 
 class LibSQLCursor:
-    """sqlite3.Cursor-compatible cursor from Turso HTTP API."""
-
     def __init__(self, columns: list[dict] = None, rows: list[list] = None, lastrowid=None):
         self._columns = columns or []
         self._rows = []
@@ -43,7 +51,13 @@ class LibSQLCursor:
 
         if rows:
             for row in rows:
-                self._rows.append(LibSQLRow(self._columns, [v.get("value") for v in row]))
+                vals = []
+                for v in row:
+                    if isinstance(v, dict):
+                        vals.append(v.get("value"))
+                    else:
+                        vals.append(v)
+                self._rows.append(LibSQLRow(self._columns, vals))
 
     def fetchone(self):
         return self._rows[0] if self._rows else None
@@ -62,10 +76,14 @@ class LibSQLCursor:
 
 
 class LibSQLConnection:
-    """Async wrapper around Turso HTTP API for Tortoise ORM compatibility."""
-
     def __init__(self, url: str, auth_token: str):
-        self._url = f"https://{url}/v2/pipeline"
+        clean = url.strip()
+        for prefix in ("libsql://", "https://", "http://"):
+            if clean.startswith(prefix):
+                clean = clean[len(prefix):]
+        clean = clean.rstrip("/")
+        self._host = clean
+        self._url = f"https://{clean}/v2/pipeline"
         self._auth_token = auth_token
         self.row_factory = None
         self.total_changes = 0
@@ -83,7 +101,7 @@ class LibSQLConnection:
         pass
 
     async def _execute_pipeline(self, requests: list[dict]) -> dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 self._url,
                 headers={
@@ -93,15 +111,20 @@ class LibSQLConnection:
                 json={"requests": requests},
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            return data
 
     def _build_stmt(self, sql: str, parameters) -> dict:
         stmt = {"sql": sql}
         if parameters:
-            stmt["args"] = [
-                {"type": "text", "value": str(p)}
-                for p in parameters
-            ]
+            args = []
+            for p in parameters:
+                t, v = _infer_turso_type(p)
+                if t == "null":
+                    args.append({"type": "null"})
+                else:
+                    args.append({"type": t, "value": v})
+            stmt["args"] = args
         return stmt
 
     async def execute(self, sql: str, parameters: tuple | list | None = None):
@@ -127,7 +150,8 @@ class LibSQLConnection:
         for params in parameters:
             stmt = self._build_stmt(sql, params)
             requests.append({"type": "execute", "stmt": stmt})
-        await self._execute_pipeline(requests)
+        if requests:
+            await self._execute_pipeline(requests)
 
     async def executescript(self, sql: str):
         for statement in sql.split(";"):
