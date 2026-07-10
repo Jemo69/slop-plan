@@ -35,7 +35,7 @@ if IS_REMOTE:
         },
         "apps": {
             "models": {
-                "models": ["models", "aerich.models"],
+                "models": ["models"],
                 "default_connection": "default",
             },
         },
@@ -58,7 +58,7 @@ else:
         },
         "apps": {
             "models": {
-                "models": ["models", "aerich.models"],
+                "models": ["models"],
                 "default_connection": "default",
             },
         },
