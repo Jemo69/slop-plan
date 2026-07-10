@@ -12,6 +12,7 @@ from tortoise_conf import TORTOISE_ORM
 from routes.auth import router as auth_router
 from routes.projects import router as projects_router
 from routes.plans import router as plans_router
+from routes.migrate import router as migrate_router
 from models import Plan
 
 app = FastAPI(
@@ -31,6 +32,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
 app.include_router(plans_router, prefix="/api/plans", tags=["plans"])
+app.include_router(migrate_router, prefix="/api", tags=["migrate"])
 
 
 DASHBOARD_HTML = """<!DOCTYPE html>
@@ -98,8 +100,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <div id="login-view" class="login-box" style="display:none;">
   <h2>Plan Dashboard</h2>
   <input type="email" id="email-input" placeholder="you@example.com" />
+  <input type="password" id="password-input" placeholder="Password (at least 6 characters)" />
   <button onclick="doLogin()">Login / Register</button>
-  <p class="hint">Enter your email to login or create an account</p>
+  <p class="hint">Enter your email and password to login or create an account</p>
 </div>
 
 <div id="app-view" style="display:none;">
@@ -152,10 +155,14 @@ function headers() {
 }
 
 async function doLogin() {
-  const input = document.getElementById('email-input');
-  const email = input.value.trim();
+  const email = document.getElementById('email-input').value.trim();
+  const password = document.getElementById('password-input').value;
   if (!email || !email.includes('@')) {
     toast('Enter a valid email');
+    return;
+  }
+  if (!password || password.length < 6) {
+    toast('Password must be at least 6 characters');
     return;
   }
 
@@ -163,7 +170,7 @@ async function doLogin() {
     const res = await fetch(API + '/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, password: password })
     });
     if (res.ok) {
       const data = await res.json();
@@ -180,7 +187,7 @@ async function doLogin() {
     const res = await fetch(API + '/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, password: password })
     });
     if (res.ok) {
       const data = await res.json();
