@@ -54,7 +54,15 @@ class LibSQLCursor:
                 vals = []
                 for v in row:
                     if isinstance(v, dict):
-                        vals.append(v.get("value"))
+                        value_type = v.get("type")
+                        value = v.get("value")
+                        if value_type == "integer":
+                            value = int(value)
+                        elif value_type == "float":
+                            value = float(value)
+                        elif value_type == "null":
+                            value = None
+                        vals.append(value)
                     else:
                         vals.append(v)
                 self._rows.append(LibSQLRow(self._columns, vals))
