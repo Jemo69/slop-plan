@@ -37,11 +37,19 @@ async def test_register_flow():
     from main import app
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        r = await client.post("/api/auth/register", json={"email": "test@example.com"})
+        r = await client.post("/api/auth/register", json={
+            "email": "test@example.com",
+            "password": "secret123",
+        })
         assert r.status_code == 201
-        assert "api_key" in r.json()
+        data = r.json()
+        assert "api_key" in data
+        assert data["has_password"] is True
 
-        r2 = await client.post("/api/auth/login", json={"email": "test@example.com"})
+        r2 = await client.post("/api/auth/login", json={
+            "email": "test@example.com",
+            "password": "secret123",
+        })
         assert r2.status_code == 200
         api_key = r2.json()["api_key"]
         headers = {"Authorization": f"Bearer {api_key}"}
@@ -74,3 +82,61 @@ async def test_register_flow():
         rp_pub = await client.get(f"/p/{plan['slug']}")
         assert rp_pub.status_code == 200
         assert "hello" in rp_pub.text
+
+@pytest.mark.asyncio
+async def test_register_requires_password():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post("/api/auth/register", json={"email": "test@example.com"})
+        assert r.status_code == 422
+
+@pytest.mark.asyncio
+async def test_register_rejects_short_password():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post("/api/auth/register", json={
+            "email": "test@example.com",
+            "password": "ab",
+        })
+        assert r.status_code == 422
+
+@pytest.mark.asyncio
+async def test_login_wrong_password():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post("/api/auth/register", json={
+            "email": "test@example.com",
+            "password": "secret123",
+        })
+        r = await client.post("/api/auth/login", json={
+            "email": "test@example.com",
+            "password": "wrongpassword",
+        })
+        assert r.status_code == 401
+        assert "Invalid password" in r.json()["detail"]
+
+@pytest.mark.asyncio
+async def test_login_missing_password():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    from services import hash_password
+    from models import User
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await User.create(
+            email="nopass@example.com",
+            api_key="plan_testnopass",
+            password_hash=None,
+        )
+        r = await client.post("/api/auth/login", json={
+            "email": "nopass@example.com",
+            "password": "whatever",
+        })
+        assert r.status_code == 400
+        assert "no password" in r.json()["detail"].lower()

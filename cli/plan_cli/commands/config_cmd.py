@@ -11,9 +11,10 @@ def show():
     config = load_config()
     api_url = config.get('api_url', 'http://localhost:8000')
     has_key = bool(config.get('api_key'))
-    console.print(f"API URL: {api_url}")
-    console.print(f"API Key: {'set' if has_key else 'not set'}")
-    console.print(f"Config file: {config}")
+    key_display = f"{config['api_key'][:8]}...{config['api_key'][-4:]}" if has_key else "not set"
+    console.print(f"API URL:  {api_url}")
+    console.print(f"API Key:  {key_display}")
+    console.print(f"Config:   ~/.plan-cli/config.json")
 
 
 @app.command("set")

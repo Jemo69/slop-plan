@@ -1,23 +1,37 @@
 import asyncio
+import json
 import typer
 from rich.console import Console
 from rich.table import Table
-from plan_cli.api import PlanAPI, PlanAPIError
+from rich.status import Status
+from plan_cli.api import PlanAPI, PlanAPIError, PlanConnectionError
 
 console = Console()
 app = typer.Typer(help="Project commands")
 
 
 @app.command("list")
-def list_projects():
+def list_projects(
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    limit: int = typer.Option(None, "--limit", "-n", help="Max results to show"),
+    offset: int = typer.Option(0, "--offset", help="Skip first N results"),
+):
     """List your projects."""
     api = PlanAPI()
     try:
-        projects = asyncio.run(api.list_projects())
+        with console.status("[dim]Working...[/dim]"):
+            projects = asyncio.run(api.list_projects())
         if not projects:
             console.print("[yellow]No projects found. Create one with 'plan projects create'[/yellow]")
             return
-        table = Table(title="Projects")
+        if as_json:
+            console.print(json.dumps(projects, indent=2))
+            return
+        total = len(projects)
+        projects = projects[offset:]
+        if limit is not None:
+            projects = projects[:limit]
+        table = Table(title=f"Projects ({offset+1}-{min(offset+len(projects), total)} of {total})")
         table.add_column("ID", style="cyan")
         table.add_column("Name", style="green")
         table.add_column("Description", style="dim")
@@ -25,6 +39,9 @@ def list_projects():
         for p in projects:
             table.add_row(p["id"][:8] + "...", p["name"], p.get("description") or "", p["created_at"][:10] if p.get("created_at") else "")
         console.print(table)
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -42,6 +59,9 @@ def create_project(
         console.print("[green]Project created![/green]")
         console.print(f"ID: [bold]{result['id']}[/bold]")
         console.print(f"Name: {result['name']}")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -50,15 +70,23 @@ def create_project(
 @app.command("get")
 def get_project(
     project_id: str = typer.Argument(help="Project ID"),
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Get project details."""
     api = PlanAPI()
     try:
-        p = asyncio.run(api.get_project(project_id))
+        with console.status("[dim]Working...[/dim]"):
+            p = asyncio.run(api.get_project(project_id))
+        if as_json:
+            console.print(json.dumps(p, indent=2))
+            return
         console.print(f"[bold]Name:[/bold] {p['name']}")
         console.print(f"[bold]ID:[/bold] {p['id']}")
         console.print(f"[bold]Description:[/bold] {p.get('description') or ''}")
         console.print(f"[bold]Created:[/bold] {p.get('created_at')}")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -78,6 +106,9 @@ def delete_project(
     try:
         asyncio.run(api.delete_project(project_id))
         console.print("[green]Project deleted[/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)

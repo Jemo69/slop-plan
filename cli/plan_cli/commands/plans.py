@@ -1,10 +1,12 @@
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional
 import typer
 from rich.console import Console
 from rich.table import Table
-from plan_cli.api import PlanAPI, PlanAPIError
+from rich.status import Status
+from plan_cli.api import PlanAPI, PlanAPIError, PlanConnectionError
 from plan_cli.frontmatter import parse_frontmatter
 
 console = Console()
@@ -44,6 +46,9 @@ def create(
         console.print(f"ID: [bold]{result['id']}[/bold]")
         console.print(f"Slug: {result['slug']}")
         console.print(f"URL: [link]{result['url']}[/link]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -53,36 +58,56 @@ def create(
 def list_plans(
     project_id: str = typer.Option(None, "--project", "-p", help="Filter by project ID"),
     public: bool = typer.Option(False, "--public", help="List only public plans"),
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    limit: int = typer.Option(None, "--limit", "-n", help="Max results to show"),
+    offset: int = typer.Option(0, "--offset", help="Skip first N results"),
 ):
     api = PlanAPI()
 
     try:
-        if public:
-            plans = asyncio.run(api.list_public_plans())
-        else:
-            plans = asyncio.run(api.list_plans(project_id=project_id))
+        with console.status("[dim]Working...[/dim]"):
+            if public:
+                plans = asyncio.run(api.list_public_plans())
+            else:
+                plans = asyncio.run(api.list_plans(project_id=project_id))
 
         if not plans:
             console.print("[yellow]No plans found.[/yellow]")
             return
 
-        table = Table(title="Plans")
+        total = len(plans)
+        plans = plans[offset:]
+        if limit is not None:
+            plans = plans[:limit]
+
+        if as_json:
+            console.print(json.dumps(plans, indent=2))
+            return
+
+        table = Table(title=f"Plans ({offset+1}-{min(offset+len(plans), total)} of {total})")
         table.add_column("ID", style="cyan")
         table.add_column("Title", style="green")
         table.add_column("URL", style="blue")
         table.add_column("Public", justify="center")
+        table.add_column("Approved", justify="center")
         table.add_column("Updated", style="dim")
 
         for plan in plans:
+            approved = "✓" if plan.get("is_approved") else "✗"
+            approved_style = "green" if plan.get("is_approved") else "red"
             table.add_row(
                 plan["id"][:8] + "...",
                 plan["title"],
                 plan.get("url", plan.get("slug", "")),
                 "✓" if plan.get("is_public") else "✗",
+                f"[{approved_style}]{approved}[/{approved_style}]",
                 plan.get("updated_at", "")[:10],
             )
 
         console.print(table)
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -91,17 +116,36 @@ def list_plans(
 @app.command()
 def get(
     plan_id: str = typer.Argument(help="Plan ID"),
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     api = PlanAPI()
 
     try:
-        plan = asyncio.run(api.get_plan(plan_id))
+        with console.status("[dim]Working...[/dim]"):
+            plan = asyncio.run(api.get_plan(plan_id))
+
+        if as_json:
+            console.print(json.dumps(plan, indent=2))
+            return
 
         console.print(f"[bold]Title:[/bold] {plan['title']}")
         console.print(f"[bold]ID:[/bold] {plan['id']}")
         console.print(f"[bold]Project:[/bold] {plan.get('project_id','')}")
         console.print(f"[bold]URL:[/bold] [link]{plan['url']}[/link]")
         console.print(f"[bold]Public:[/bold] {'Yes' if plan['is_public'] else 'No'}")
+        
+        approved = plan.get('is_approved', False)
+        approved_by = plan.get('approved_by', '')
+        approved_at = plan.get('approved_at', '')
+        if approved:
+            console.print(f"[bold]Approved:[/bold] [green]Yes[/green]")
+            if approved_by:
+                console.print(f"[bold]Approved By:[/bold] {approved_by}")
+            if approved_at:
+                console.print(f"[bold]Approved At:[/bold] {approved_at}")
+        else:
+            console.print(f"[bold]Approved:[/bold] [red]No[/red]")
+        
         console.print(f"[bold]Created:[/bold] {plan['created_at']}")
         console.print(f"[bold]Updated:[/bold] {plan['updated_at']}")
 
@@ -109,6 +153,9 @@ def get(
             console.print("\n[bold]Frontmatter:[/bold]")
             for key, value in plan["frontmatter"].items():
                 console.print(f"  {key}: {value}")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -138,14 +185,17 @@ def update(
         updates["title"] = title
 
     if not updates:
-        console.print("[yellow]Nothing to update.[/yellow]")
-        return
+        console.print("[yellow]Nothing to update. Provide --html or --title.[/yellow]")
+        raise typer.Exit(1)
 
     try:
         result = asyncio.run(api.update_plan(plan_id, **updates))
         console.print("[green]Plan updated successfully![/green]")
         console.print(f"ID: [bold]{result['id']}[/bold]")
         console.print(f"URL: [link]{result['url']}[/link]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -167,6 +217,9 @@ def delete(
     try:
         asyncio.run(api.delete_plan(plan_id))
         console.print("[green]Plan deleted successfully![/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -182,6 +235,9 @@ def publish(
         result = asyncio.run(api.publish_plan(plan_id))
         console.print("[green]Plan published![/green]")
         console.print(f"URL: [link]{result['url']}[/link]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
@@ -196,6 +252,45 @@ def unpublish(
     try:
         result = asyncio.run(api.unpublish_plan(plan_id))
         console.print("[green]Plan unpublished![/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def approve(
+    plan_id: str = typer.Argument(help="Plan ID"),
+):
+    api = PlanAPI()
+
+    try:
+        result = asyncio.run(api.approve_plan(plan_id))
+        console.print("[green]Plan approved![/green]")
+        console.print(f"Approved by: {result.get('approved_by', '')}")
+        console.print(f"Approved at: {result.get('approved_at', '')}")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def unapprove(
+    plan_id: str = typer.Argument(help="Plan ID"),
+):
+    api = PlanAPI()
+
+    try:
+        result = asyncio.run(api.unapprove_plan(plan_id))
+        console.print("[green]Plan approval removed![/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
