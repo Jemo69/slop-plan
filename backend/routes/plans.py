@@ -16,6 +16,11 @@ def slugify(text: str) -> str:
     return text[:50].strip("-") or f"plan-{uuid.uuid4().hex[:8]}"
 
 
+async def _get_user_plan(plan_id: str, user: User):
+    user_project_ids = await Project.filter(user_id=user.id).values_list("id", flat=True)
+    return await Plan.filter(id=plan_id, project_id__in=list(user_project_ids)).first()
+
+
 class PlanCreate(BaseModel):
     project_id: str
     title: str
@@ -82,7 +87,8 @@ async def list_plans(
         plans = await query.all()
         return PlanListResponse(plans=[to_response(p) for p in plans])
 
-    query = Plan.filter(project__user_id=user.id)
+    user_project_ids = await Project.filter(user_id=user.id).values_list("id", flat=True)
+    query = Plan.filter(project_id__in=list(user_project_ids))
     if project_id:
         query = query.filter(project_id=project_id)
 
@@ -117,19 +123,14 @@ async def create_plan(
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    try:
-        plan = await Plan.create(
-            project_id=project.id,
-            title=request.title,
-            slug=slug,
-            html_content=request.html_content,
-            frontmatter=request.frontmatter,
-            is_public=request.is_public,
-        )
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    plan = await Plan.create(
+        project_id=project.id,
+        title=request.title,
+        slug=slug,
+        html_content=request.html_content,
+        frontmatter=request.frontmatter,
+        is_public=request.is_public,
+    )
 
     return to_response(plan)
 
@@ -144,7 +145,7 @@ async def get_plan(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid plan_id format")
 
-    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
+    plan = await _get_user_plan(plan_id, user)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -162,7 +163,7 @@ async def update_plan(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid plan_id format")
 
-    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
+    plan = await _get_user_plan(plan_id, user)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -190,7 +191,7 @@ async def delete_plan(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid plan_id format")
 
-    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
+    plan = await _get_user_plan(plan_id, user)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -207,7 +208,7 @@ async def publish_plan(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid plan_id format")
 
-    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
+    plan = await _get_user_plan(plan_id, user)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
@@ -227,7 +228,7 @@ async def unpublish_plan(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid plan_id format")
 
-    plan = await Plan.filter(id=plan_id, project__user_id=user.id).first()
+    plan = await _get_user_plan(plan_id, user)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
