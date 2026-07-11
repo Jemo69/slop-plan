@@ -93,6 +93,7 @@ async def test_register_flow():
         rp_pub = await client.get(f"/p/{plan['slug']}")
         assert rp_pub.status_code == 200
         assert "hello" in rp_pub.text
+        assert "Dashboard" in rp_pub.text
 
 @pytest.mark.asyncio
 async def test_register_requires_password():
