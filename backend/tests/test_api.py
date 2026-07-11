@@ -23,6 +23,17 @@ async def init_db():
         pass
 
 @pytest.mark.asyncio
+async def test_dashboard_has_home_button():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/dashboard")
+        assert r.status_code == 200
+        assert "Home" in r.text
+        assert "/dashboard" in r.text
+
+@pytest.mark.asyncio
 async def test_root():
     from httpx import AsyncClient, ASGITransport
     from main import app

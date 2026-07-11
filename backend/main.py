@@ -108,6 +108,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <h1>Plan Dashboard</h1>
     <div style="display:flex;align-items:center;gap:12px;">
       <span class="email" id="user-email"></span>
+      <button onclick="window.location.href='/dashboard'">Home</button>
       <button onclick="doLogout()">Logout</button>
     </div>
   </div>
