@@ -98,8 +98,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <div id="login-view" class="login-box" style="display:none;">
   <h2>Plan Dashboard</h2>
   <input type="email" id="email-input" placeholder="you@example.com" />
+  <input type="password" id="password-input" placeholder="Password" />
   <button onclick="doLogin()">Login / Register</button>
-  <p class="hint">Enter your email to login or create an account</p>
+  <p class="hint">Enter your email and password to login or create an account</p>
 </div>
 
 <div id="app-view" style="display:none;">
@@ -154,8 +155,13 @@ function headers() {
 async function doLogin() {
   const input = document.getElementById('email-input');
   const email = input.value.trim();
+  const password = document.getElementById('password-input').value;
   if (!email || !email.includes('@')) {
     toast('Enter a valid email');
+    return;
+  }
+  if (!password) {
+    toast('Enter a password');
     return;
   }
 
@@ -163,7 +169,7 @@ async function doLogin() {
     const res = await fetch(API + '/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, password: password })
     });
     if (res.ok) {
       const data = await res.json();
@@ -180,7 +186,7 @@ async function doLogin() {
     const res = await fetch(API + '/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, password: password })
     });
     if (res.ok) {
       const data = await res.json();
