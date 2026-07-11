@@ -396,6 +396,12 @@ async def dashboard():
     return HTMLResponse(content=DASHBOARD_HTML)
 
 
+NAV_BAR = '''<div style="position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#1a1a2e;border-bottom:1px solid #333;">
+  <a href="/dashboard" style="color:#6c5ce7;text-decoration:none;font-size:14px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">&larr; Dashboard</a>
+</div>'''
+
+BODY_PADDING = '<style>body{padding-top:48px!important}</style>'
+
 @app.get("/p/{slug}", response_class=HTMLResponse, tags=["public"])
 async def serve_public_plan(slug: str):
     plan = await Plan.filter(slug=slug, is_public=True).first()
@@ -425,6 +431,14 @@ async def serve_public_plan(slug: str):
         if head_idx != -1:
             insert_pos = head_idx + len("<head>")
             html = html[:insert_pos] + meta_tags + html[insert_pos:]
+
+    lower = html.lower()
+    body_idx = lower.find("<body>")
+    if body_idx != -1:
+        insert_pos = body_idx + len("<body>")
+        html = html[:insert_pos] + NAV_BAR + BODY_PADDING + html[insert_pos:]
+    else:
+        html = NAV_BAR + html
 
     return HTMLResponse(content=html)
 
