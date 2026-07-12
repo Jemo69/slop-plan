@@ -91,6 +91,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .preview-modal.open { display: flex; align-items: center; justify-content: center; }
   .preview-frame { width: 90vw; height: 85vh; background: #fff; border-radius: 12px; border: none; }
   .preview-close { position: fixed; top: 16px; right: 20px; background: #333; color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; z-index: 101; }
+  @media (max-width: 640px) {
+    .header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+    .header h1 { width: 100%; }
+    .header .email { display: none; }
+    .container { padding: 16px; }
+    .stats { flex-wrap: wrap; }
+    .stat { flex: 1 1 calc(50% - 8px); min-width: 0; padding: 12px 14px; }
+    .stat .num { font-size: 22px; }
+    .login-box { margin: 60px 16px; }
+    .plan-card { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
+    .plan-info { width: 100%; }
+    .plan-actions { width: 100%; flex-wrap: wrap; }
+    .btn { padding: 8px 14px; font-size: 13px; }
+    .preview-frame { width: 100vw; height: 100vh; border-radius: 0; }
+    .preview-close { top: 8px; right: 8px; width: 40px; height: 40px; font-size: 20px; }
+    .toast { left: 16px; right: 16px; bottom: 16px; text-align: center; }
+  }
 </style>
 </head>
 <body>
