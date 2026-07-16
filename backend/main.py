@@ -58,7 +58,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .stat { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; flex: 1; }
   .stat .num { font-size: 28px; font-weight: 700; color: #6c5ce7; }
   .stat .label { color: #888; font-size: 12px; margin-top: 4px; }
-  .plan-list { display: flex; flex-direction: column; gap: 8px; }
+  .project-group { margin-bottom: 28px; }
+  .project-group:last-child { margin-bottom: 0; }
+  .project-header { font-size: 16px; font-weight: 700; color: #6c5ce7; padding: 0 4px 10px 4px; border-bottom: 1px solid #333; margin-bottom: 10px; }
+  .project-header .plan-count { font-size: 12px; color: #666; font-weight: 400; margin-left: 8px; }
+  .project-plans { display: flex; flex-direction: column; gap: 8px; }
   .plan-card { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; transition: border-color 0.15s; }
   .plan-card:hover { border-color: #6c5ce7; }
   .plan-card.approved { border-color: #10b981; }
@@ -245,27 +249,61 @@ async function loadPlans() {
   document.getElementById('plan-list').innerHTML = '<div class="loading">Loading plans...</div>';
 
   try {
-    const res = await fetch(API + '/api/plans', { headers: headers() });
-    if (!res.ok) {
-      if (res.status === 401) {
+    const [plansRes, projectsRes] = await Promise.all([
+      fetch(API + '/api/plans', { headers: headers() }),
+      fetch(API + '/api/projects', { headers: headers() })
+    ]);
+    if (!plansRes.ok) {
+      if (plansRes.status === 401) {
         localStorage.removeItem('plan_api_key');
         apiKey = null;
         show('login-view');
         return;
       }
-      const err = await res.json().catch(() => ({}));
+      const err = await plansRes.json().catch(() => ({}));
       throw new Error(err.detail || 'Failed to load plans');
     }
-    const data = await res.json();
-    const plans = data.plans || [];
-    renderPlans(plans);
+    const plansData = await plansRes.json();
+    const plans = plansData.plans || [];
+    let projects = [];
+    if (projectsRes.ok) {
+      const projectsData = await projectsRes.json();
+      projects = projectsData.projects || [];
+    }
+    renderPlans(plans, projects);
   } catch (e) {
     showError(e.message);
     document.getElementById('plan-list').innerHTML = '';
   }
 }
 
-function renderPlans(plans) {
+function renderPlanCard(p) {
+  const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '';
+  const publicBadge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
+  const approvedBadge = p.is_approved ? '<span class="badge approved">Approved</span>' : '<span class="badge pending">Pending</span>';
+  const approvedClass = p.is_approved ? ' approved' : '';
+  const approvedInfo = p.is_approved && p.approved_by ? '<span class="approved-info">by ' + esc(p.approved_by) + '</span>' : '';
+  
+  const approveBtn = p.is_approved
+    ? '<button class="btn btn-unapprove" onclick="unapprovePlan(\\'' + p.id + '\\')">Unapprove</button>'
+    : '<button class="btn btn-approve" onclick="approvePlan(\\'' + p.id + '\\')">Approve</button>';
+  
+  return '<div class="plan-card' + approvedClass + '">' +
+    '<div class="plan-info">' +
+      '<div class="plan-title">' + esc(p.title) + '</div>' +
+      '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + approvedInfo + '</div>' +
+    '</div>' +
+    '<div class="plan-actions">' +
+      publicBadge +
+      approvedBadge +
+      approveBtn +
+      '<button class="btn btn-view" onclick="preview(\\'' + p.id + '\\', ' + p.is_public + ', \\'' + esc(p.slug) + '\\')">View</button>' +
+      '<button class="btn btn-delete" onclick="delPlan(\\'' + p.id + '\\')">Delete</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderPlans(plans, projects) {
   const list = document.getElementById('plan-list');
   const stats = document.getElementById('stats');
 
@@ -284,29 +322,26 @@ function renderPlans(plans) {
     return;
   }
 
-  list.innerHTML = plans.map(p => {
-    const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '';
-    const publicBadge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
-    const approvedBadge = p.is_approved ? '<span class="badge approved">Approved</span>' : '<span class="badge pending">Pending</span>';
-    const approvedClass = p.is_approved ? ' approved' : '';
-    const approvedInfo = p.is_approved && p.approved_by ? '<span class="approved-info">by ' + esc(p.approved_by) + '</span>' : '';
-    
-    const approveBtn = p.is_approved
-      ? '<button class="btn btn-unapprove" onclick="unapprovePlan(\\'' + p.id + '\\')">Unapprove</button>'
-      : '<button class="btn btn-approve" onclick="approvePlan(\\'' + p.id + '\\')">Approve</button>';
-    
-    return '<div class="plan-card' + approvedClass + '">' +
-      '<div class="plan-info">' +
-        '<div class="plan-title">' + esc(p.title) + '</div>' +
-        '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + approvedInfo + '</div>' +
-      '</div>' +
-      '<div class="plan-actions">' +
-        publicBadge +
-        approvedBadge +
-        approveBtn +
-        '<button class="btn btn-view" onclick="preview(\\'' + p.id + '\\', ' + p.is_public + ', \\'' + esc(p.slug) + '\\')">View</button>' +
-        '<button class="btn btn-delete" onclick="delPlan(\\'' + p.id + '\\')">Delete</button>' +
-      '</div>' +
+  const projectMap = {};
+  projects.forEach(p => { projectMap[p.id] = p.name; });
+
+  const groups = {};
+  const groupOrder = [];
+  plans.forEach(p => {
+    const pid = p.project_id;
+    if (!groups[pid]) {
+      groups[pid] = [];
+      groupOrder.push(pid);
+    }
+    groups[pid].push(p);
+  });
+
+  list.innerHTML = groupOrder.map(pid => {
+    const name = projectMap[pid] || 'Unknown Project';
+    const planCards = groups[pid].map(renderPlanCard).join('');
+    return '<div class="project-group">' +
+      '<div class="project-header">' + esc(name) + '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span></div>' +
+      '<div class="project-plans">' + planCards + '</div>' +
     '</div>';
   }).join('');
 }
