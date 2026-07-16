@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Generate — HTML Planner{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex flex-col">
+  <header class="border-b border-border px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-3">
+          <span class="text-accent font-mono text-lg font-bold">&gt;_</span>
+          <h1 class="text-xl font-mono font-bold text-ink">html-planner</h1>
+        </a>
+      </div>
+      <nav class="flex items-center gap-6">
+        <a href="/" class="text-ink-muted hover:text-ink transition-colors text-sm">home</a>
+        <a href="/app" class="text-ink transition-colors text-sm">generate</a>
+        <a href="/dashboard" class="text-ink-muted hover:text-ink transition-colors text-sm">dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 px-6 py-12">
+    <div class="max-w-4xl mx-auto">
+      <div class="mb-8">
+        <span class="font-mono text-accent text-sm">$ generate</span>
+        <h2 class="text-2xl font-mono font-bold text-ink mt-2">describe your page</h2>
+        <p class="text-ink-muted mt-2">Tell me what you want to build. Be specific about layout, content, and style.</p>
+      </div>
+
+      <form action="/app/generate" method="POST" class="space-y-6">
+        <div>
+          <label for="prompt" class="block font-mono text-sm text-ink-muted mb-2">prompt</label>
+          <textarea
+            id="prompt"
+            name="prompt"
+            rows="6"
+            required
+            placeholder="a landing page for a SaaS product with a hero section, features grid, pricing table, and footer"
+            class="w-full bg-bg border border-border px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-muted/50 focus:outline-none focus:border-border-focus resize-none"
+          ></textarea>
+          <p class="mt-2 text-xs text-ink-muted font-mono">tip: include layout, sections, color preferences, and content details</p>
+        </div>
+
+        <div>
+          <label class="block font-mono text-sm text-ink-muted mb-3">style</label>
+          <div class="grid grid-cols-3 gap-3">
+            <label class="relative cursor-pointer">
+              <input type="radio" name="style" value="modern" checked class="peer sr-only">
+              <div class="border border-border bg-bg-surface p-4 peer-checked:border-primary peer-checked:bg-bg-raised transition-colors">
+                <span class="block font-mono text-sm text-ink font-medium">modern</span>
+                <span class="block text-xs text-ink-muted mt-1">clean, system fonts</span>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="style" value="minimal" class="peer sr-only">
+              <div class="border border-border bg-bg-surface p-4 peer-checked:border-primary peer-checked:bg-bg-raised transition-colors">
+                <span class="block font-mono text-sm text-ink font-medium">minimal</span>
+                <span class="block text-xs text-ink-muted mt-1">bare bones, fast</span>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="style" value="terminal" class="peer sr-only">
+              <div class="border border-border bg-bg-surface p-4 peer-checked:border-primary peer-checked:bg-bg-raised transition-colors">
+                <span class="block font-mono text-sm text-ink font-medium">terminal</span>
+                <span class="block text-xs text-ink-muted mt-1">hacker aesthetic</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <button
+            type="submit"
+            class="bg-primary text-bg px-6 py-3 font-mono font-medium hover:bg-primary-hover transition-colors inline-flex items-center gap-2"
+          >
+            generate html
+            <span class="text-bg/60">→</span>
+          </button>
+          <span class="text-xs text-ink-muted font-mono">ctrl+enter to submit</span>
+        </div>
+      </form>
+
+      <div class="mt-12 border-t border-border pt-8">
+        <h3 class="font-mono text-sm text-ink-muted mb-4">example prompts</h3>
+        <div class="space-y-2">
+          <button type="button" onclick="fillPrompt('a blog post layout with sidebar, table of contents, and reading time indicator')" class="block w-full text-left border border-border bg-bg-surface px-4 py-3 font-mono text-xs text-ink-muted hover:border-ink-muted hover:text-ink transition-colors">
+            <span class="text-accent">$</span> a blog post layout with sidebar, table of contents, and reading time indicator
+          </button>
+          <button type="button" onclick="fillPrompt('a dashboard with sidebar navigation, stats cards, and a data table with sorting')" class="block w-full text-left border border-border bg-bg-surface px-4 py-3 font-mono text-xs text-ink-muted hover:border-ink-muted hover:text-ink transition-colors">
+            <span class="text-accent">$</span> a dashboard with sidebar navigation, stats cards, and a data table with sorting
+          </button>
+          <button type="button" onclick="fillPrompt('a pricing page with three tiers, feature comparison, and FAQ accordion')" class="block w-full text-left border border-border bg-bg-surface px-4 py-3 font-mono text-xs text-ink-muted hover:border-ink-muted hover:text-ink transition-colors">
+            <span class="text-accent">$</span> a pricing page with three tiers, feature comparison, and FAQ accordion
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function fillPrompt(text) {
+  document.getElementById('prompt').value = text;
+  document.getElementById('prompt').focus();
+}
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    document.querySelector('form').submit();
+  }
+});
+</script>
+{% endblock %}
