@@ -3,11 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from tortoise.contrib.fastapi import register_tortoise
 
 from tortoise_conf import TORTOISE_ORM
@@ -33,10 +31,6 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
 app.include_router(plans_router, prefix="/api/plans", tags=["plans"])
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
 
 DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -498,88 +492,6 @@ async def serve_public_plan(slug: str):
         html = NAV_BAR + html
 
     return HTMLResponse(content=html)
-
-
-@app.get("/app", response_class=HTMLResponse, tags=["templates"])
-async def template_home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
-@app.get("/app/generate", response_class=HTMLResponse, tags=["templates"])
-async def template_generate_page(request: Request):
-    return templates.TemplateResponse("generate.html", {"request": request})
-
-
-@app.post("/app/generate", response_class=HTMLResponse, tags=["templates"])
-async def template_generate_html(
-    request: Request,
-    prompt: str = Form(...),
-    style: str = Form("modern"),
-):
-    html_output = generate_from_prompt(prompt, style)
-    return templates.TemplateResponse(
-        "output.html",
-        {
-            "request": request,
-            "prompt": prompt,
-            "style": style,
-            "html_output": html_output,
-        },
-    )
-
-
-def generate_from_prompt(prompt: str, style: str) -> str:
-    """Generate HTML from a prompt. Placeholder for AI integration."""
-    styles = {
-        "modern": f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Generated Page</title>
-  <style>
-    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-    body {{ font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; color: #1a1a1a; line-height: 1.6; }}
-    h1 {{ font-size: 2.5rem; margin-bottom: 1rem; }}
-    p {{ color: #4a4a4a; margin-bottom: 1rem; }}
-  </style>
-</head>
-<body>
-  <h1>Generated from prompt</h1>
-  <p>Your prompt: {prompt}</p>
-</body>
-</html>""",
-        "minimal": f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Generated Page</title>
-  <style>
-    body {{ font-family: monospace; max-width: 600px; margin: 2rem auto; padding: 1rem; }}
-  </style>
-</head>
-<body>
-  <h1>{prompt}</h1>
-</body>
-</html>""",
-        "terminal": f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Generated Page</title>
-  <style>
-    body {{ font-family: 'Courier New', monospace; background: #0a0a0a; color: #00ff00; padding: 2rem; }}
-    h1 {{ color: #00ff00; font-size: 1.5rem; }}
-    p {{ color: #00cc00; }}
-  </style>
-</head>
-<body>
-  <h1>$ {prompt}</h1>
-  <p>Generated output will appear here.</p>
-</body>
-</html>""",
-    }
-    return styles.get(style, styles["modern"])
 
 
 register_tortoise(
