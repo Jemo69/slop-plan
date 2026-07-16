@@ -15,6 +15,8 @@ dependencies = [
     "aerich>=0.8.1",
     "pyyaml>=6.0.0",
     "bcrypt>=4.0.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

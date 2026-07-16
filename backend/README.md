@@ -9,6 +9,7 @@ A FastAPI backend for storing and serving HTML plans with Turso/libSQL support.
 - Plan management (CRUD)
 - Public plan serving via `/p/:slug`
 - Open Graph and Twitter Card meta tags for social sharing
+- Plan dashboard UI at `/dashboard`
 
 ## Setup
 
@@ -57,6 +58,10 @@ export TURSO_AUTH_TOKEN="your-auth-token"
 
 ### Public Plans
 - `GET /p/{slug}` - Serve public plan HTML
+
+### Dashboard UI
+- `GET /dashboard` - Plan dashboard (auth required)
+- `GET /app` - Landing page
 
 ## Database
 
