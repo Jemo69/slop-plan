@@ -94,6 +94,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .preview-modal.open { display: flex; align-items: center; justify-content: center; }
   .preview-frame { width: 90vw; height: 85vh; background: #fff; border-radius: 12px; border: none; }
   .preview-close { position: fixed; top: 16px; right: 20px; background: #333; color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; z-index: 101; }
+  .notif-btn { background: #333; color: #888; border: 1px solid #555; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: all 0.2s; }
+  .notif-btn:hover { background: #444; }
+  .notif-btn.active { color: #10b981; border-color: #10b981; background: #064e3b; }
   @media (max-width: 640px) {
     .header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
     .header h1 { width: 100%; }
@@ -128,6 +131,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <h1>Plan Dashboard</h1>
     <div style="display:flex;align-items:center;gap:12px;">
       <span class="email" id="user-email"></span>
+      <button class="notif-btn" id="notif-toggle" onclick="toggleNotifications()" title="Toggle notifications">🔔</button>
       <button onclick="window.location.href='/dashboard'">Home</button>
       <button onclick="doLogout()">Logout</button>
     </div>
@@ -426,6 +430,88 @@ async function delPlan(id) {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+let notifEnabled = localStorage.getItem('plan_notif_enabled') === 'true';
+let lastKnownPlanIds = new Set();
+let notifPollInterval = null;
+
+function updateNotifButton() {
+  const btn = document.getElementById('notif-toggle');
+  if (btn) {
+    btn.classList.toggle('active', notifEnabled);
+    btn.title = notifEnabled ? 'Notifications enabled' : 'Enable notifications';
+  }
+}
+
+async function toggleNotifications() {
+  if (!notifEnabled) {
+    if (!('Notification' in window)) {
+      toast('Notifications not supported');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      toast('Notification permission denied');
+      return;
+    }
+    notifEnabled = true;
+    localStorage.setItem('plan_notif_enabled', 'true');
+    toast('Notifications enabled');
+    startNotifPoll();
+  } else {
+    notifEnabled = false;
+    localStorage.setItem('plan_notif_enabled', 'false');
+    toast('Notifications disabled');
+    stopNotifPoll();
+  }
+  updateNotifButton();
+}
+
+function notifyNewPlan(plan) {
+  if (Notification.permission !== 'granted') return;
+  const n = new Notification('New Plan Created', {
+    body: plan.title,
+    icon: '/favicon.ico',
+    tag: 'plan-' + plan.id
+  });
+  n.onclick = () => { window.focus(); n.close(); };
+  setTimeout(() => n.close(), 5000);
+}
+
+async function checkForNewPlans() {
+  if (!apiKey) return;
+  try {
+    const res = await fetch(API + '/api/plans', { headers: headers() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const plans = data.plans || [];
+    const currentIds = new Set(plans.map(p => p.id));
+    if (lastKnownPlanIds.size > 0) {
+      plans.forEach(p => {
+        if (!lastKnownPlanIds.has(p.id)) {
+          notifyNewPlan(p);
+        }
+      });
+    }
+    lastKnownPlanIds = currentIds;
+  } catch (e) { }
+}
+
+function startNotifPoll() {
+  if (notifPollInterval) return;
+  checkForNewPlans();
+  notifPollInterval = setInterval(checkForNewPlans, 30000);
+}
+
+function stopNotifPoll() {
+  if (notifPollInterval) {
+    clearInterval(notifPollInterval);
+    notifPollInterval = null;
+  }
+}
+
+updateNotifButton();
+if (notifEnabled && apiKey) startNotifPoll();
 loadPlans();
 </script>
 </body>
