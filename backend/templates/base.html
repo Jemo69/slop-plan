@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}HTML Planner{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              DEFAULT: '#020a08',
+              surface: '#0a1410',
+              raised: '#122018',
+            },
+            ink: {
+              DEFAULT: '#e0faf5',
+              muted: '#7a9e94',
+            },
+            primary: {
+              DEFAULT: '#90ecd6',
+              hover: '#a8f2e0',
+            },
+            secondary: {
+              DEFAULT: '#8e181b',
+              hover: '#a51d20',
+            },
+            accent: {
+              DEFAULT: '#d8dd31',
+            },
+            border: {
+              DEFAULT: '#1a2e26',
+              focus: '#90ecd6',
+            },
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
+            sans: ['Inter', 'SF Pro Display', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+      background-color: #020a08;
+      color: #e0faf5;
+    }
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    ::selection {
+      background-color: #90ecd6;
+      color: #020a08;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0a1410;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1a2e26;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #7a9e94;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-bg antialiased">
+  {% block body %}{% endblock %}
+</body>
+</html>
