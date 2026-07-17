@@ -97,6 +97,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .notif-btn { background: #333; color: #888; border: 1px solid #555; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: all 0.2s; }
   .notif-btn:hover { background: #444; }
   .notif-btn.active { color: #10b981; border-color: #10b981; background: #064e3b; }
+  .pinned-group { margin-bottom: 28px; }
+  .pinned-header { font-size: 16px; font-weight: 700; color: #fbbf24; padding: 0 4px 10px 4px; border-bottom: 1px solid #333; margin-bottom: 10px; }
+  .plan-card.pinned { border-color: #92700a; background: #1f1a10; }
+  .plan-card.pinned:hover { border-color: #fbbf24; }
+  .pin-btn { background: transparent; color: #666; border: 1px solid #444; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.15s; line-height: 1; }
+  .pin-btn:hover { color: #fbbf24; border-color: #fbbf24; }
+  .pin-btn.pinned { color: #fbbf24; border-color: #fbbf24; background: #78350f; }
   @media (max-width: 640px) {
     .header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
     .header h1 { width: 100%; }
@@ -285,18 +292,27 @@ function renderPlanCard(p) {
   const publicBadge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
   const approvedBadge = p.is_approved ? '<span class="badge approved">Approved</span>' : '<span class="badge pending">Pending</span>';
   const approvedClass = p.is_approved ? ' approved' : '';
+  const pinnedClass = p.is_pinned ? ' pinned' : '';
   const approvedInfo = p.is_approved && p.approved_by ? '<span class="approved-info">by ' + esc(p.approved_by) + '</span>' : '';
+  
+  const pinBtnClass = p.is_pinned ? ' pin-btn pinned' : ' pin-btn';
+  const pinAction = p.is_pinned
+    ? 'unpinPlan(\\'' + p.id + '\\')'
+    : 'pinPlan(\\'' + p.id + '\\')';
+  const pinIcon = p.is_pinned ? '📌' : '📍';
+  const pinTitle = p.is_pinned ? 'Unpin' : 'Pin to top';
   
   const approveBtn = p.is_approved
     ? '<button class="btn btn-unapprove" onclick="unapprovePlan(\\'' + p.id + '\\')">Unapprove</button>'
     : '<button class="btn btn-approve" onclick="approvePlan(\\'' + p.id + '\\')">Approve</button>';
   
-  return '<div class="plan-card' + approvedClass + '">' +
+  return '<div class="plan-card' + approvedClass + pinnedClass + '">' +
     '<div class="plan-info">' +
       '<div class="plan-title">' + esc(p.title) + '</div>' +
       '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + approvedInfo + '</div>' +
     '</div>' +
     '<div class="plan-actions">' +
+      '<button class="' + pinBtnClass + '" onclick="' + pinAction + '" title="' + pinTitle + '">' + pinIcon + '</button>' +
       publicBadge +
       approvedBadge +
       approveBtn +
@@ -313,12 +329,14 @@ function renderPlans(plans, projects) {
   const publicCount = plans.filter(p => p.is_public).length;
   const approvedCount = plans.filter(p => p.is_approved).length;
   const pendingCount = plans.filter(p => !p.is_approved).length;
+  const pinnedCount = plans.filter(p => p.is_pinned).length;
   
   stats.innerHTML =
     '<div class="stat"><div class="num">' + plans.length + '</div><div class="label">Total Plans</div></div>' +
     '<div class="stat"><div class="num" style="color:#10b981">' + approvedCount + '</div><div class="label">Approved</div></div>' +
     '<div class="stat"><div class="num" style="color:#fbbf24">' + pendingCount + '</div><div class="label">Pending</div></div>' +
-    '<div class="stat"><div class="num">' + publicCount + '</div><div class="label">Public</div></div>';
+    '<div class="stat"><div class="num">' + publicCount + '</div><div class="label">Public</div></div>' +
+    '<div class="stat"><div class="num" style="color:#fbbf24">' + pinnedCount + '</div><div class="label">Pinned</div></div>';
 
   if (plans.length === 0) {
     show('empty-view');
@@ -328,9 +346,22 @@ function renderPlans(plans, projects) {
   const projectMap = {};
   projects.forEach(p => { projectMap[p.id] = p.name; });
 
+  const pinnedPlans = plans.filter(p => p.is_pinned);
+  const unpinnedPlans = plans.filter(p => !p.is_pinned);
+
+  let html = '';
+
+  if (pinnedPlans.length > 0) {
+    const pinnedCards = pinnedPlans.map(renderPlanCard).join('');
+    html += '<div class="pinned-group">' +
+      '<div class="pinned-header">📌 Pinned</div>' +
+      '<div class="project-plans">' + pinnedCards + '</div>' +
+    '</div>';
+  }
+
   const groups = {};
   const groupOrder = [];
-  plans.forEach(p => {
+  unpinnedPlans.forEach(p => {
     const pid = p.project_id;
     if (!groups[pid]) {
       groups[pid] = [];
@@ -339,7 +370,7 @@ function renderPlans(plans, projects) {
     groups[pid].push(p);
   });
 
-  list.innerHTML = groupOrder.map(pid => {
+  html += groupOrder.map(pid => {
     const name = projectMap[pid] || 'Unknown Project';
     const planCards = groups[pid].map(renderPlanCard).join('');
     return '<div class="project-group">' +
@@ -347,6 +378,8 @@ function renderPlans(plans, projects) {
       '<div class="project-plans">' + planCards + '</div>' +
     '</div>';
   }).join('');
+
+  list.innerHTML = html;
 }
 
 function esc(s) {
@@ -411,6 +444,42 @@ async function unapprovePlan(id) {
     }
   } catch (e) {
     toast('Unapprove failed');
+  }
+}
+
+async function pinPlan(id) {
+  try {
+    const res = await fetch(API + '/api/plans/' + id + '/pin', {
+      method: 'POST',
+      headers: headers()
+    });
+    if (res.ok) {
+      toast('Plan pinned!');
+      loadPlans();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(err.detail || 'Pin failed');
+    }
+  } catch (e) {
+    toast('Pin failed');
+  }
+}
+
+async function unpinPlan(id) {
+  try {
+    const res = await fetch(API + '/api/plans/' + id + '/pin', {
+      method: 'DELETE',
+      headers: headers()
+    });
+    if (res.ok) {
+      toast('Plan unpinned');
+      loadPlans();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(err.detail || 'Unpin failed');
+    }
+  } catch (e) {
+    toast('Unpin failed');
   }
 }
 
