@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
-from models import User, Project, Plan, PlanPin
+from db import User, Project, Plan, PlanPin
 from routes.auth import get_current_user
 
 router = APIRouter()
@@ -102,18 +102,17 @@ async def list_plans(
         query = query.filter(project_id=project_id)
 
     plans = await query.all()
-
+    
     pinned_plan_ids = set(
         await PlanPin.filter(user_id=user.id).values_list("plan_id", flat=True)
     )
-
+    
     plan_responses = []
     for p in plans:
         plan_responses.append(to_response(p, is_pinned=str(p.id) in pinned_plan_ids))
-
-    plan_responses.sort(key=lambda r: (not r.is_pinned, r.updated_at), reverse=False)
-    plan_responses.sort(key=lambda r: r.is_pinned, reverse=True)
-
+    
+    plan_responses.sort(key=lambda r: (not r.is_pinned, r.title))
+    
     return PlanListResponse(plans=plan_responses)
 
 
@@ -301,11 +300,6 @@ async def unapprove_plan(
     await plan.save()
 
     return to_response(plan)
-
-
-class PinResponse(BaseModel):
-    plan_id: str
-    pinned_at: str
 
 
 @router.post("/{plan_id}/pin", response_model=PlanResponse, status_code=201)
