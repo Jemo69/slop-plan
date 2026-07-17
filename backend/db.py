@@ -21,6 +21,7 @@ class Project(models.Model):
     user = fields.ForeignKeyField("models.User", related_name="projects", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
+    is_pinned = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -49,6 +50,20 @@ class Plan(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ProjectPin(models.Model):
+    id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    user = fields.ForeignKeyField("models.User", related_name="project_pins", on_delete=fields.CASCADE)
+    project = fields.ForeignKeyField("models.Project", related_name="pins", on_delete=fields.CASCADE)
+    pinned_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "project_pins"
+        unique_together = ("user", "project")
+
+    def __str__(self):
+        return f"{self.user} pinned {self.project}"
 
 
 class PlanPin(models.Model):

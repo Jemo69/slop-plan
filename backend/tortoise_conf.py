@@ -35,8 +35,9 @@ if IS_REMOTE:
         },
         "apps": {
             "models": {
-                "models": ["models"],
+                "models": ["db"],
                 "default_connection": "default",
+                "migrations": "migrations",
             },
         },
     }
@@ -58,8 +59,9 @@ else:
         },
         "apps": {
             "models": {
-                "models": ["models"],
+                "models": ["db"],
                 "default_connection": "default",
+                "migrations": "migrations",
             },
         },
     }

@@ -8,7 +8,7 @@ TEST_DB = tempfile.mktemp(suffix=".db")
 
 TEST_TORTOISE = {
     "connections": {"default": {"engine": "tortoise.backends.sqlite", "credentials": {"file_path": TEST_DB}}},
-    "apps": {"models": {"models": ["models"], "default_connection": "default"}},
+    "apps": {"models": {"models": ["db"], "default_connection": "default"}},
 }
 
 @pytest_asyncio.fixture(autouse=True)
@@ -138,7 +138,7 @@ async def test_login_missing_password():
     from httpx import AsyncClient, ASGITransport
     from main import app
     from services import hash_password
-    from models import User
+    from db import User
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await User.create(
