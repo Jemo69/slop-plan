@@ -4,6 +4,8 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from fastapi import APIRouter, Response
 
+from models import Plan
+
 templates: Jinja2Templates | None = Jinja2Templates(directory="templates")
 
 router = APIRouter()
