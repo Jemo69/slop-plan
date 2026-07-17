@@ -49,3 +49,17 @@ class Plan(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PlanPin(models.Model):
+    id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    user = fields.ForeignKeyField("models.User", related_name="plan_pins", on_delete=fields.CASCADE)
+    plan = fields.ForeignKeyField("models.Plan", related_name="pins", on_delete=fields.CASCADE)
+    pinned_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "plan_pins"
+        unique_together = ("user", "plan")
+
+    def __str__(self):
+        return f"{self.user} pinned {self.plan}"
