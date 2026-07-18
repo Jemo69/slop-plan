@@ -10,6 +10,7 @@ A FastAPI backend for storing and serving HTML plans with Turso/libSQL support.
 - Pin plans to top of dashboard (per-user)
 - Public plan serving via `/p/:slug`
 - Open Graph and Twitter Card meta tags for social sharing
+- Plan dashboard UI at `/dashboard`
 
 ## Setup
 
@@ -63,16 +64,9 @@ export TURSO_AUTH_TOKEN="your-auth-token"
 ### Public Plans
 - `GET /p/{slug}` - Serve public plan HTML
 
-## Dashboard
-
-Access the web dashboard at `/dashboard`. Features:
-
-- View all plans grouped by project
-- Pin/unpin plans (pinned plans appear at top)
-- Approve/unapprove plans
-- Preview plans in a modal
-- Delete plans
-- Browser notifications for new plans
+### Dashboard UI
+- `GET /dashboard` - Plan dashboard (auth required)
+- `GET /app` - Landing page
 
 ## Database
 
