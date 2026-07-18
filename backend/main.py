@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from tortoise.contrib.fastapi import RegisterTortoise
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,16 +28,11 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        await Tortoise.init(config=TORTOISE_ORM)
-    except Exception as exc:
-        import logging
-        logging.getLogger("main").warning("Tortoise init failed: %s", exc)
-    yield
-    try:
-        await Tortoise.close_connections()
-    except Exception:
-        pass
+    async with RegisterTortoise(
+        app,
+        config=TORTOISE_ORM,
+    ):
+        yield
 
 
 app = FastAPI(
