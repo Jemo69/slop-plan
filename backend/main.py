@@ -47,8 +47,6 @@ app = FastAPI(
     description="Service to store and serve HTML plans",
     lifespan=lifespan,
 )
-app.add_middleware(EnsureDBInitMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
