@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS projects (
     user_id TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    is_pinned BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );

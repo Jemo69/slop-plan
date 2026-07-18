@@ -76,7 +76,6 @@ class LibSQLClient(BaseDBAsyncClient):
         if not self._connection:
             self._connection = LibSQLConnection(self.filename, self.auth_token)
             self.log.debug("Connected to Turso via HTTP: %s", self.filename)
-
             await self._post_connect()
 
     async def close(self) -> None:
@@ -190,7 +189,7 @@ class LibSQLTransactionWrapper(LibSQLClient):
         self._savepoint = None
         self.log = connection.log
         self._finalized = False
-        self.fetch_inserted = connection.fetch_inserted
+        self.fetch_inserted = getattr(connection, 'fetch_inserted', False)
         self._parent = connection
 
     def _in_transaction(self) -> TransactionContext:
