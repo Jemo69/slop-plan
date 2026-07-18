@@ -4,13 +4,11 @@ from contextlib import asynccontextmanager
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI
 from tortoise.contrib.fastapi import RegisterTortoise
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from tortoise import Tortoise
 
 from tortoise_conf import TORTOISE_ORM
 from routes.auth import router as auth_router
@@ -18,7 +16,6 @@ from routes.projects import router as projects_router
 from routes.plans import router as plans_router
 from routes.page import router as page_router
 
-from models import Plan
 
 # Absolute paths so templates/static resolve correctly on Vercel (cwd may differ).
 BASE_DIR = Path(__file__).resolve().parent
