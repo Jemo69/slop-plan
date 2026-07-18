@@ -1,12 +1,17 @@
+import asyncio
+import logging
 import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from tortoise.contrib.fastapi import register_tortoise
+from starlette.middleware.base import BaseHTTPMiddleware
+from tortoise import Tortoise
 
 from tortoise_conf import TORTOISE_ORM
 from routes.auth import router as auth_router
@@ -14,11 +19,38 @@ from routes.projects import router as projects_router
 from routes.plans import router as plans_router
 from db import Plan
 
+logger = logging.getLogger(__name__)
+
+_db_lock = asyncio.Lock()
+_db_initialized = False
+
+
+class EnsureDBInitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        global _db_initialized
+        if not _db_initialized:
+            async with _db_lock:
+                if not _db_initialized:
+                    await Tortoise.init(config=TORTOISE_ORM)
+                    _db_initialized = True
+                    logger.info("Tortoise ORM initialized on first request")
+        return await call_next(request)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    yield
+    await Tortoise.close_connections()
+    logger.info("Tortoise ORM connections closed")
+
+
 app = FastAPI(
     title="HTML Plan Service",
     version="0.1.0",
     description="Service to store and serve HTML plans",
+    lifespan=lifespan,
 )
+app.add_middleware(EnsureDBInitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -645,11 +677,3 @@ async def serve_public_plan(slug: str):
         html = NAV_BAR + html
 
     return HTMLResponse(content=html)
-
-
-register_tortoise(
-    app,
-    config=TORTOISE_ORM,
-    generate_schemas=False,
-    add_exception_handlers=True,
-)
