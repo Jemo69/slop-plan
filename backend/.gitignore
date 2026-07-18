@@ -10,3 +10,6 @@ wheels/
 .env 
 .venv
 
+# Local database
+local.db
+
