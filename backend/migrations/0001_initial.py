@@ -29,7 +29,6 @@ class Migration(migrations.Migration):
                 ('user', fields.ForeignKeyField('models.User', source_field='user_id', db_constraint=True, to_field='id', related_name='projects', on_delete=OnDelete.CASCADE)),
                 ('name', fields.CharField(max_length=255)),
                 ('description', fields.TextField(null=True, unique=False)),
-                ('is_pinned', fields.BooleanField(default=False)),
                 ('created_at', fields.DatetimeField(auto_now=False, auto_now_add=True)),
             ],
             options={'table': 'projects', 'app': 'models', 'pk_attr': 'id'},
