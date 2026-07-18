@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tortoise import Tortoise
 from tortoise_conf import TORTOISE_ORM, IS_REMOTE
-from models import User
+from db import User
 from services import hash_password
 
 EMAIL = "jemolife69@gmail.com"

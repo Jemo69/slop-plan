@@ -2,7 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    load_dotenv(override=False)
+except Exception:
+    pass
 
 RAW_URL = os.getenv("DATABASE_URL", "local.db")
 AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN") or None
@@ -35,8 +38,9 @@ if IS_REMOTE:
         },
         "apps": {
             "models": {
-                "models": ["models"],
+                "models": ["db", "aerich.models"],
                 "default_connection": "default",
+                "migrations": "migrations",
             },
         },
     }
@@ -58,8 +62,9 @@ else:
         },
         "apps": {
             "models": {
-                "models": ["models"],
+                "models": ["db"],
                 "default_connection": "default",
+                "migrations": "migrations",
             },
         },
     }

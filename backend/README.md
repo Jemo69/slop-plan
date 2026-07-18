@@ -7,6 +7,7 @@ A FastAPI backend for storing and serving HTML plans with Turso/libSQL support.
 - User authentication with API keys
 - Project management (CRUD)
 - Plan management (CRUD)
+- Pin plans to top of dashboard (per-user)
 - Public plan serving via `/p/:slug`
 - Open Graph and Twitter Card meta tags for social sharing
 - Plan dashboard UI at `/dashboard`
@@ -48,13 +49,17 @@ export TURSO_AUTH_TOKEN="your-auth-token"
 - `DELETE /api/projects/{id}` - Delete project
 
 ### Plans
-- `GET /api/plans` - List user's plans
+- `GET /api/plans` - List user's plans (pinned plans returned first, includes `is_pinned` field)
 - `POST /api/plans` - Create plan
 - `GET /api/plans/{id}` - Get plan
 - `PUT /api/plans/{id}` - Update plan
 - `DELETE /api/plans/{id}` - Delete plan
 - `POST /api/plans/{id}/publish` - Make plan public
 - `POST /api/plans/{id}/unpublish` - Make plan private
+- `POST /api/plans/{id}/approve` - Approve plan
+- `POST /api/plans/{id}/unapprove` - Unapprove plan
+- `POST /api/plans/{id}/pin` - Pin plan to top of dashboard
+- `DELETE /api/plans/{id}/pin` - Unpin plan
 
 ### Public Plans
 - `GET /p/{slug}` - Serve public plan HTML
@@ -66,6 +71,8 @@ export TURSO_AUTH_TOKEN="your-auth-token"
 ## Database
 
 Uses Tortoise ORM with SQLite (dev) or Turso/libSQL (production).
+
+Tables: `users`, `projects`, `plans`, `plan_pins`
 
 Run migrations:
 ```bash

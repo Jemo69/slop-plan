@@ -1,7 +1,7 @@
 import secrets
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr, Field
-from models import User
+from db import User
 from services import hash_password, verify_password
 
 router = APIRouter()

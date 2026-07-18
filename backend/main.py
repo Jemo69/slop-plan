@@ -1,5 +1,9 @@
+import asyncio
+import logging
 import os
 import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -43,6 +47,7 @@ app = FastAPI(
     description="Service to store and serve HTML plans",
     lifespan=lifespan,
 )
+app.add_middleware(EnsureDBInitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

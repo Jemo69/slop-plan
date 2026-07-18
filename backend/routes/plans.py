@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
-from models import User, Project, Plan
+from db import User, Project, Plan, PlanPin
 from routes.auth import get_current_user
 
 router = APIRouter()
@@ -47,6 +47,7 @@ class PlanResponse(BaseModel):
     frontmatter: Optional[dict]
     is_public: bool
     is_approved: bool
+    is_pinned: bool = False
     approved_at: Optional[str]
     approved_by: Optional[str]
     created_at: str
@@ -57,7 +58,7 @@ class PlanListResponse(BaseModel):
     plans: List[PlanResponse]
 
 
-def to_response(p: Plan) -> PlanResponse:
+def to_response(p: Plan, is_pinned: bool = False) -> PlanResponse:
     pid = str(p.project_id) if hasattr(p, "project_id") else ""
     if not pid and hasattr(p, "project"):
         try:
@@ -74,6 +75,7 @@ def to_response(p: Plan) -> PlanResponse:
         frontmatter=p.frontmatter,
         is_public=p.is_public,
         is_approved=p.is_approved,
+        is_pinned=is_pinned,
         approved_at=p.approved_at.isoformat() if p.approved_at else None,
         approved_by=p.approved_by,
         created_at=p.created_at.isoformat() if p.created_at else "",
@@ -100,7 +102,18 @@ async def list_plans(
         query = query.filter(project_id=project_id)
 
     plans = await query.all()
-    return PlanListResponse(plans=[to_response(p) for p in plans])
+    
+    pinned_plan_ids = set(
+        await PlanPin.filter(user_id=user.id).values_list("plan_id", flat=True)
+    )
+    
+    plan_responses = []
+    for p in plans:
+        plan_responses.append(to_response(p, is_pinned=str(p.id) in pinned_plan_ids))
+    
+    plan_responses.sort(key=lambda r: (not r.is_pinned, r.title))
+    
+    return PlanListResponse(plans=plan_responses)
 
 
 @router.get("/public", response_model=PlanListResponse)
@@ -287,3 +300,42 @@ async def unapprove_plan(
     await plan.save()
 
     return to_response(plan)
+
+
+@router.post("/{plan_id}/pin", response_model=PlanResponse, status_code=201)
+async def pin_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    existing = await PlanPin.filter(user_id=user.id, plan_id=plan.id).first()
+    if existing:
+        return to_response(plan, is_pinned=True)
+
+    await PlanPin.create(user_id=user.id, plan_id=plan.id)
+    return to_response(plan, is_pinned=True)
+
+
+@router.delete("/{plan_id}/pin", status_code=204)
+async def unpin_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    await PlanPin.filter(user_id=user.id, plan_id=plan.id).delete()
