@@ -1,8 +1,8 @@
+import os
 import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-sys.path.insert(0, str(Path(__file__).parent))
 
 from fastapi import FastAPI
 from tortoise.contrib.fastapi import RegisterTortoise
@@ -15,6 +15,11 @@ from routes.auth import router as auth_router
 from routes.projects import router as projects_router
 from routes.plans import router as plans_router
 from routes.page import router as page_router
+
+sys.path.insert(0, str(Path(__file__).parent))
+vendor_path = os.path.join(os.path.dirname(__file__), "_vendor")
+if os.path.exists(vendor_path) and vendor_path not in sys.path:
+    sys.path.insert(0, vendor_path)
 
 
 # Absolute paths so templates/static resolve correctly on Vercel (cwd may differ).
