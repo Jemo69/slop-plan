@@ -1,14 +1,14 @@
 {
-  "builds": [
+  "rewrites": [
     {
-      "src": "backend/main.py",
-      "use": "@vercel/python"
+      "source": "/((?!api/).*)",
+      "destination": "/api"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "backend/main.py"
+  "functions": {
+    "api/index.py": {
+      "memory": 256,
+      "maxDuration": 30
     }
-  ]
+  }
 }
