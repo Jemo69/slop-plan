@@ -1,0 +1,33 @@
+# Force Vercel to use requirements.txt instead of pyproject.toml
+# See: https://github.com/vercel/vercel/issues/14041
+backend/pyproject.toml
+
+# Local SQLite database
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Virtual environments
+backend/.venv
+backend/venv
+
+# Python cache
+backend/__pycache__/
+**/__pycache__/
+*.py[oc]
+
+# Local env
+backend/.env
+
+# Test artifacts
+backend/.pytest_cache/
+backend/tests/
+
+# Non-deployable files
+*.md
+*.html
+cli/
+add-*
+test_*
+update-*
+start-backend.sh
