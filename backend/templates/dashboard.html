@@ -48,8 +48,12 @@
   .btn-approve:hover { background: #059669; }
   .btn-unapprove { background: transparent; color: #fbbf24; border-color: #fbbf24; }
   .btn-unapprove:hover { background: #78350f; }
-  .btn-delete { background: transparent; color: #e07070; border-color: #5a3030; }
-  .btn-delete:hover { background: #3d1f1f; }
+.btn-archive { background: transparent; color: #e07070; border-color: #5a3030; }
+.btn-archive:hover { background: #3d1f1f; }
+.btn-archive.active { background: #78350f; color: #fbbf24; border-color: #fbbf24; }
+.btn-pin { background: transparent; color: #fbbf24; border-color: #78350f; }
+.btn-pin:hover { background: #78350f; }
+.btn-pin.active { background: #fbbf24; color: #1a1a2e; border-color: #fbbf24; }
   .empty { text-align: center; padding: 60px 20px; color: #666; }
   .empty p { margin-bottom: 16px; }
   .loading { text-align: center; padding: 40px; color: #666; }
@@ -301,14 +305,24 @@ function renderPlans(plans, projects) {
     groups[pid].push(p);
   });
 
-  list.innerHTML = groupOrder.map(pid => {
-    const name = projectMap[pid] || 'Unknown Project';
-    const planCards = groups[pid].map(renderPlanCard).join('');
-    return '<div class="project-group">' +
-      '<div class="project-header">' + esc(name) + '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span></div>' +
-      '<div class="project-plans">' + planCards + '</div>' +
-    '</div>';
-  }).join('');
+list.innerHTML = groupOrder.map(pid => {
+     const name = projectMap[pid] || 'Unknown Project';
+     const projData = projects.find(p => p.id === pid) || {};
+     const isPinned = projData.is_pinned || false;
+     const isArchived = projData.is_archived || false;
+     const planCards = groups[pid].map(renderPlanCard).join('');
+     return '<div class="project-group">' +
+       '<div class="project-header">' +
+         esc(name) +
+         '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span>' +
+         '<span style="margin-left:auto;display:flex;gap:6px;">' +
+           '<button class="btn btn-pin ' + (isPinned ? 'active' : '') + '" onclick="togglePinProject(\'' + pid + '\', ' + isPinned + ')">' + (isPinned ? 'Unpin' : 'Pin') + '</button>' +
+           '<button class="btn btn-archive ' + (isArchived ? 'active' : '') + '" onclick="toggleArchiveProject(\'' + pid + '\', ' + isArchived + ')">' + (isArchived ? 'Unarchive' : 'Archive') + '</button>' +
+         '</span>' +
+       '</div>' +
+       '<div class="project-plans">' + planCards + '</div>' +
+     '</div>';
+   }).join('');
 }
 
 function esc(s) {
@@ -388,6 +402,40 @@ async function delPlan(id) {
     }
   } catch (e) {
     toast('Delete failed');
+  }
+}
+
+async function togglePinProject(projectId, currentlyPinned) {
+  try {
+    const res = await fetch(API + '/api/projects/' + projectId + '/pin', {
+      method: currentlyPinned ? 'DELETE' : 'POST',
+      headers: headers()
+    });
+    if (res.ok || res.status === 204) {
+      toast(currentlyPinned ? 'Unpinned' : 'Pinned');
+      loadPlans();
+    } else {
+      toast('Operation failed');
+    }
+  } catch (e) {
+    toast('Operation failed');
+  }
+}
+
+async function toggleArchiveProject(projectId, currentlyArchived) {
+  try {
+    const url = currentlyArchived
+      ? API + '/api/projects/' + projectId + '/unarchive'
+      : API + '/api/projects/' + projectId + '/archive';
+    const res = await fetch(url, { method: 'POST', headers: headers() });
+    if (res.ok) {
+      toast(currentlyArchived ? 'Unarchived' : 'Archived');
+      loadPlans();
+    } else {
+      toast('Operation failed');
+    }
+  } catch (e) {
+    toast('Operation failed');
   }
 }
 
