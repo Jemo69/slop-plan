@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archive Project Feature Plan</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    h1 { color: #fbbf24; margin-bottom: 8px; }
+    h2 { color: #10b981; margin-top: 24px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    h3 { color: #8b5cf6; margin-top: 16px; }
+    code {
+      background: #1a1a2e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    pre {
+      background: #1a1a2e;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid #333;
+    }
+    pre code { background: none; padding: 0; }
+    ul { margin: 8px 0; padding-left: 24px; }
+    li { margin: 4px 0; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-green { background: #1b4332; color: #52b788; }
+    .badge-yellow { background: #78350f; color: #fbbf24; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #333; padding: 8px 12px; text-align: left; }
+    th { background: #1a1a2e; color: #6c5ce7; }
+  </style>
+</head>
+<body>
+  <h1>Archive Project Feature</h1>
+  <p>Add the ability to archive and unarchive projects, soft-deleting them from the active project list.</p>
+
+  <h2>Goal</h2>
+  <p>Users should be able to archive projects they no longer actively use, hiding them from the default project list while preserving all associated data. Archived projects can be unarchived to restore them.</p>
+
+  <h2>Files Modified</h2>
+  <table>
+    <tr><th>File</th><th>Change</th></tr>
+    <tr><td><code>backend/db.py</code></td><td>Add <code>is_archived</code> boolean field to <code>Project</code> model</td></tr>
+    <tr><td><code>backend/migrations/0002_project_archive.py</code></td><td>New migration adding <code>is_archived</code> column</td></tr>
+    <tr><td><code>backend/routes/projects.py</code></td><td>Add <code>/archive</code> and <code>/unarchive</code> endpoints; update <code>ProjectResponse</code> with <code>is_archived</code>; filter archived projects from list</td></tr>
+    <tr><td><code>backend/routes/plans.py</code></td><td>Prevent plans in archived projects from being created (optional guard)</td></tr>
+    <tr><td><code>cli/plan_cli/api.py</code></td><td>Add <code>archive_project</code> and <code>unarchive_project</code> API methods</td></tr>
+    <tr><td><code>cli/plan_cli/commands/projects.py</code></td><td>Add <code>archive</code> and <code>unarchive</code> CLI commands</td></tr>
+    <tr><td><code>backend/tests/test_api.py</code></td><td>Add tests for archive/unarchive behavior</td></tr>
+  </table>
+
+  <h2>Execution Phases</h2>
+
+  <h3>Phase 1: Database Model & Migration</h3>
+  <ul>
+    <li>Add <code>is_archived = fields.BooleanField(default=False)</code> to <code>Project</code> in <code>db.py</code></li>
+    <li>Create migration <code>backend/migrations/0002_project_archive.py</code></li>
+  </ul>
+
+  <h3>Phase 2: Backend API Endpoints</h3>
+  <ul>
+    <li>Add <code>is_archived</code> to <code>ProjectResponse</code> model</li>
+    <li>Add <code>POST /{project_id}/archive</code> endpoint</li>
+    <li>Add <code>POST /{project_id}/unarchive</code> endpoint</li>
+    <li>Filter out archived projects from <code>GET /api/projects</code> list by default</li>
+  </ul>
+
+  <h3>Phase 3: CLI Commands</h3>
+  <ul>
+    <li>Add <code>archive_project</code> and <code>unarchive_project</code> methods to <code>PlanAPI</code> class</li>
+    <li>Add <code>archive</code> and <code>unarchive</code> commands to <code>plan_cli/commands/projects.py</code></li>
+  </ul>
+
+  <h3>Phase 4: Tests</h3>
+  <ul>
+    <li>Test archiving a project hides it from list</li>
+    <li>Test unarchiving restores it to the list</li>
+    <li>Test archive/unarchive permissions and error cases</li>
+  </ul>
+</body>
+</html>

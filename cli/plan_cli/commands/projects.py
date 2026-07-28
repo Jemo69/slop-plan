@@ -112,3 +112,47 @@ def delete_project(
     except PlanAPIError as e:
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
+
+
+@app.command("archive")
+def archive_project(
+    project_id: str = typer.Argument(help="Project ID"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Archive a project."""
+    if not force:
+        if not typer.confirm(f"Archive project {project_id}?"):
+            console.print("[yellow]Cancelled[/yellow]")
+            raise typer.Exit(0)
+    api = PlanAPI()
+    try:
+        asyncio.run(api.archive_project(project_id))
+        console.print("[green]Project archived[/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("unarchive")
+def unarchive_project(
+    project_id: str = typer.Argument(help="Project ID"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Unarchive a project."""
+    if not force:
+        if not typer.confirm(f"Unarchive project {project_id}?"):
+            console.print("[yellow]Cancelled[/yellow]")
+            raise typer.Exit(0)
+    api = PlanAPI()
+    try:
+        asyncio.run(api.unarchive_project(project_id))
+        console.print("[green]Project unarchived[/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
