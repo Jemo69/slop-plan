@@ -1,6 +1,6 @@
 import secrets
-from fastapi import APIRouter, HTTPException, Header, Cookie
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Header, Cookie, Form
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from db import User
 from services import hash_password, verify_password
@@ -66,16 +66,65 @@ async def register(request: RegisterRequest):
     )
 
 
+@router.post("/register/form", response_model=AuthResponse, status_code=201)
+async def register_form(
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    return await _register(email, password)
+
+
 @router.post("/login")
 async def login(request: LoginRequest):
-    user = await User.filter(email=request.email).first()
+    return await _login(request.email, request.password)
+
+
+@router.post("/login/form")
+async def login_form(
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    return await _login(email, password)
+
+
+@router.post("/logout")
+async def logout():
+    return JSONResponse(
+        content={"status": "logged_out"},
+        headers={"Set-Cookie": "plan_api_key=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"},
+    )
+
+
+async def _register(email: str, password: str):
+    existing = await User.filter(email=email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    api_key = generate_api_key()
+    password_hash = hash_password(password)
+    user = await User.create(email=email, api_key=api_key, password_hash=password_hash)
+
+    return JSONResponse(
+        content=AuthResponse(
+            api_key=user.api_key,
+            email=user.email,
+            user_id=str(user.id),
+            has_password=True,
+        ).model_dump(),
+        headers={"Set-Cookie": f"plan_api_key={api_key}; HttpOnly; SameSite=Lax; Path=/"},
+        status_code=201,
+    )
+
+
+async def _login(email: str, password: str):
+    user = await User.filter(email=email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     if not user.password_hash:
         raise HTTPException(status_code=400, detail="Account has no password set")
 
-    if not verify_password(request.password, user.password_hash):
+    if not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     return JSONResponse(
