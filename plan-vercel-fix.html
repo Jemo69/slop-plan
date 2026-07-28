@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vercel Deployment Fix — html-planner-server</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --orange: #db6d28;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+    h2 {
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+    p, li { font-size: 0.92rem; color: var(--text); }
+    p { margin-bottom: 0.75rem; }
+    ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.35rem; }
+    code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.15em 0.4em;
+      font-size: 0.85em;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    pre code { border: none; padding: 0; background: none; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.4rem;
+    }
+    .badge-red { background: rgba(248,81,73,0.15); color: var(--red); }
+    .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+    .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .timeline {
+      border-left: 2px solid var(--border);
+      padding-left: 1.5rem;
+      margin: 1rem 0 1rem 0.5rem;
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 1.25rem;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -1.75rem;
+      top: 0.45rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .timeline-item.fail::before { background: var(--red); }
+    .timeline-item.partial::before { background: var(--yellow); }
+    .timeline-item.success::before { background: var(--green); }
+    .timeline-item strong { font-size: 0.9rem; }
+    .timeline-item .ts { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.5rem; }
+    .timeline-item p { margin-top: 0.25rem; font-size: 0.85rem; color: var(--text-muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--text-muted); font-weight: 600; }
+    .diff-add { background: rgba(63,185,80,0.1); }
+    .diff-del { background: rgba(248,81,73,0.1); text-decoration: line-through; color: var(--text-muted); }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Vercel Deployment Fix</h1>
+  <p class="subtitle">html-planner-server &mdash; July 18&ndash;19, 2026</p>
+
+  <h2>Problem</h2>
+  <p>
+    <code>https://html-planner-server.vercel.app</code> returned <strong>404: NOT_FOUND</strong> from
+    Vercel's infrastructure. The build status showed "success" but the Python function was never
+    deployed — no routes, no function invocations, just a Vercel error page.
+  </p>
+
+  <h2>Root Causes (5 compounding issues)</h2>
+
+  <div class="card">
+    <h3><span class="badge badge-red">CRITICAL</span> 1. Legacy <code>builds</code> config + wrong entry point</h3>
+    <p>
+      <code>vercel.json</code> used the legacy <code>builds</code> array with
+      <code>"src": "backend/main.py"</code>. Modern Vercel (v48+) ignores project settings when
+      <code>builds</code> is present, and the <code>@vercel/python</code> runtime couldn't find
+      the function at a non-standard path.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3><span class="badge badge-red">CRITICAL</span> 2. <code>requirements.txt</code> only in <code>backend/</code></h3>
+    <p>
+      <code>@vercel/python</code> looks for <code>requirements.txt</code> at the <strong>project
+      root</strong>, not relative to the entry point. With the file buried in <code>backend/</code>,
+      no dependencies were installed during the build.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3><span class="badge badge-red">CRITICAL</span> 3. <code>pyproject.toml</code> + <code>requirements.txt</code> conflict</h3>
+    <p>
+      Both files existed in <code>backend/</code>. Vercel 48.2.0+ prefers <code>pyproject.toml</code>
+      + <code>uv</code> when both are present. Without a <code>uv.lock</code>, the build silently
+      skipped dependency installation. The <code>.vercelignore</code> in <code>backend/</code> was
+      ignored — Vercel only reads it at the <strong>project root</strong>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3><span class="badge badge-yellow">MODERATE</span> 4. Broken imports in source code</h3>
+    <ul>
+      <li><code>routes/page.py:7</code> — <code>from models import Plan</code> referenced a non-existent <code>models</code> module. Fixed to <code>from db import Plan</code>.</li>
+      <li><code>main.py:50</code> — <code>app.add_middleware(EnsureDBInitMiddleware)</code> referenced an undefined class. Removed (the <code>RegisterTortoise</code> lifespan already handles DB init).</li>
+      <li><code>tortoise_conf.py:41</code> — <code>"models": ["db", "aerich.models"]</code> still referenced <code>aerich</code> after it was removed from dependencies. Crashed on cold start.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><span class="badge badge-yellow">MODERATE</span> 5. <code>.python-version</code> set to 3.14</h3>
+    <p>Vercel doesn't support Python 3.14. Fixed to <code>3.12</code>.</p>
+  </div>
+
+  <h2>Debugging Timeline</h2>
+  <div class="timeline">
+    <div class="timeline-item fail">
+      <strong>PR #9 — requirements.txt + Python 3.12</strong>
+      <span class="ts">23:49 UTC</span>
+      <p>Added <code>requirements.txt</code> to <code>backend/</code> and set <code>.python-version</code> to 3.12. Deploy still 404 — deps still not found because Vercel looks at root.</p>
+    </div>
+    <div class="timeline-item fail">
+      <strong>PR #10 — Fix broken imports</strong>
+      <span class="ts">23:52 UTC</span>
+      <p>Fixed <code>from models import Plan</code> → <code>from db import Plan</code>, removed undefined <code>EnsureDBInitMiddleware</code>. App starts locally but deploy still 404.</p>
+    </div>
+    <div class="timeline-item fail">
+      <strong>PR #11 — Remove aerich.models reference</strong>
+      <span class="ts">23:55 UTC</span>
+      <p>Removed <code>aerich.models</code> from Tortoise config. App starts with DB init but deploy still 404 — the function itself was never deployed.</p>
+    </div>
+    <div class="timeline-item partial">
+      <strong>Root .vercelignore</strong>
+      <span class="ts">00:00 UTC +1</span>
+      <p>Added root <code>.vercelignore</code> to exclude <code>backend/pyproject.toml</code>. Still 404 — the real issue was the function entry point structure.</p>
+    </div>
+    <div class="timeline-item success">
+      <strong>Restructure for Vercel conventions</strong>
+      <span class="ts">00:09 UTC +1</span>
+      <p>Created <code>api/index.py</code>, added <code>requirements.txt</code> at root, converted <code>vercel.json</code> to modern <code>functions</code>+<code>rewrites</code>. Deploy succeeded.</p>
+    </div>
+  </div>
+
+  <h2>Final Fix — Files Changed</h2>
+
+  <table>
+    <thead>
+      <tr><th>File</th><th>Change</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr class="diff-add">
+        <td><code>api/index.py</code></td>
+        <td>New entry point</td>
+        <td>Vercel auto-detects Python functions in <code>api/</code>; imports <code>backend.main.app</code></td>
+      </tr>
+      <tr class="diff-add">
+        <td><code>requirements.txt</code> (root)</td>
+        <td>New at project root</td>
+        <td><code>@vercel/python</code> looks for deps at the root, not in subdirectories</td>
+      </tr>
+      <tr>
+        <td><code>vercel.json</code></td>
+        <td>Legacy <code>builds</code> → modern <code>functions</code>+<code>rewrites</code></td>
+        <td><code>builds</code> is deprecated; <code>rewrites</code> routes all traffic to <code>/api</code></td>
+      </tr>
+      <tr>
+        <td><code>.vercelignore</code> (root)</td>
+        <td>New at project root</td>
+        <td>Excludes <code>backend/pyproject.toml</code> to prevent uv/hatchling conflict</td>
+      </tr>
+      <tr>
+        <td><code>backend/routes/page.py:7</code></td>
+        <td><code>from models import Plan</code> → <code>from db import Plan</code></td>
+        <td><code>models.py</code> doesn't exist; <code>Plan</code> is in <code>db.py</code></td>
+      </tr>
+      <tr>
+        <td><code>backend/main.py:50</code></td>
+        <td>Removed <code>EnsureDBInitMiddleware</code></td>
+        <td>Undefined class; <code>RegisterTortoise</code> lifespan handles DB init</td>
+      </tr>
+      <tr>
+        <td><code>backend/tortoise_conf.py:41</code></td>
+        <td>Removed <code>"aerich.models"</code> from models list</td>
+        <td>aerich was removed from deps; import crashed on cold start</td>
+      </tr>
+      <tr>
+        <td><code>backend/.python-version</code></td>
+        <td><code>3.14</code> → <code>3.12</code></td>
+        <td>Vercel doesn't support Python 3.14</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Key Takeaway</h2>
+  <div class="card">
+    <p>
+      Vercel Python conventions are <strong>opinionated</strong>:
+    </p>
+    <ul>
+      <li>Functions go in <code>api/</code> (auto-detected) — not in arbitrary subdirectories</li>
+      <li><code>requirements.txt</code> goes at the <strong>project root</strong> — not next to the entry point</li>
+      <li>Don't mix <code>pyproject.toml</code> + <code>requirements.txt</code> without a lockfile — Vercel prefers uv and silently fails</li>
+      <li><code>.vercelignore</code> must be at the <strong>root</strong> — copies in subdirectories are ignored</li>
+      <li><code>builds</code> is legacy — use <code>functions</code>+<code>rewrites</code></li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    Generated by plan-cli &mdash; html-planner-server &mdash; July 2026
+  </div>
+
+</body>
+</html>
