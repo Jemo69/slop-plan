@@ -1,5 +1,6 @@
 import secrets
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Cookie
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from db import User
 from services import hash_password, verify_password
@@ -53,15 +54,19 @@ async def register(request: RegisterRequest):
     password_hash = hash_password(request.password)
     user = await User.create(email=request.email, api_key=api_key, password_hash=password_hash)
 
-    return AuthResponse(
-        api_key=user.api_key,
-        email=user.email,
-        user_id=str(user.id),
-        has_password=True,
+    return JSONResponse(
+        content=AuthResponse(
+            api_key=user.api_key,
+            email=user.email,
+            user_id=str(user.id),
+            has_password=True,
+        ).model_dump(),
+        headers={"Set-Cookie": f"plan_api_key={api_key}; HttpOnly; SameSite=Lax; Path=/"},
+        status_code=201,
     )
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login")
 async def login(request: LoginRequest):
     user = await User.filter(email=request.email).first()
     if not user:
@@ -73,9 +78,12 @@ async def login(request: LoginRequest):
     if not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid password")
 
-    return AuthResponse(
-        api_key=user.api_key,
-        email=user.email,
-        user_id=str(user.id),
-        has_password=True,
+    return JSONResponse(
+        content=AuthResponse(
+            api_key=user.api_key,
+            email=user.email,
+            user_id=str(user.id),
+            has_password=True,
+        ).model_dump(),
+        headers={"Set-Cookie": f"plan_api_key={user.api_key}; HttpOnly; SameSite=Lax; Path=/"},
     )

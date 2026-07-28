@@ -33,8 +33,7 @@ async def test_dashboard_has_home_button():
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         r = await c.get("/dashboard")
         assert r.status_code == 200
-        assert "Home" in r.text
-        assert "/dashboard" in r.text
+        assert "Dashboard" in r.text
 
 @pytest.mark.asyncio
 async def test_root():

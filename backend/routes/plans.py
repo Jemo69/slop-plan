@@ -339,3 +339,58 @@ async def unpin_plan(
         raise HTTPException(status_code=404, detail="Plan not found")
 
     await PlanPin.filter(user_id=user.id, plan_id=plan.id).delete()
+
+
+@router.post("/{plan_id}/archive", response_model=PlanResponse)
+async def archive_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    plan.is_archived = True
+    await plan.save()
+    return to_response(plan)
+
+
+@router.post("/{plan_id}/unarchive", response_model=PlanResponse)
+async def unarchive_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    plan.is_archived = False
+    await plan.save()
+    return to_response(plan)
+
+
+@router.delete("/{plan_id}", status_code=204)
+async def delete_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    await plan.delete()
