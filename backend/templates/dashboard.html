@@ -216,12 +216,9 @@ async function loadPlans() {
   document.getElementById('user-email').textContent = userEmail || '';
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('plan-list').innerHTML = '<div class="loading">Loading plans...</div>';
-
+  let projects = [];
   try {
-    const [plansRes, projectsRes] = await Promise.all([
-      fetch(API + '/api/plans', { headers: headers() }),
-      fetch(API + '/api/projects', { headers: headers() })
-    ]);
+    const plansRes = await fetch(API + '/api/plans', { headers: headers() });
     if (!plansRes.ok) {
       if (plansRes.status === 401) {
         localStorage.removeItem('plan_api_key');
@@ -234,10 +231,14 @@ async function loadPlans() {
     }
     const plansData = await plansRes.json();
     const plans = plansData.plans || [];
-    let projects = [];
-    if (projectsRes.ok) {
-      const projectsData = await projectsRes.json();
-      projects = projectsData.projects || [];
+    try {
+      const projectsRes = await fetch(API + '/api/projects', { headers: headers() });
+      if (projectsRes.ok) {
+        const projectsData = await projectsRes.json();
+        projects = projectsData.projects || [];
+      }
+    } catch (e) {
+      showError('Failed to load projects list');
     }
     renderPlans(plans, projects);
   } catch (e) {
@@ -291,9 +292,6 @@ function renderPlans(plans, projects) {
     return;
   }
 
-  const projectMap = {};
-  projects.forEach(p => { projectMap[p.id] = p.name; });
-
   const groups = {};
   const groupOrder = [];
   plans.forEach(p => {
@@ -306,23 +304,23 @@ function renderPlans(plans, projects) {
   });
 
 list.innerHTML = groupOrder.map(pid => {
-     const name = projectMap[pid] || 'Unknown Project';
-     const projData = projects.find(p => p.id === pid) || {};
-     const isPinned = projData.is_pinned || false;
-     const isArchived = projData.is_archived || false;
-     const planCards = groups[pid].map(renderPlanCard).join('');
-     return '<div class="project-group">' +
-       '<div class="project-header">' +
-         esc(name) +
-         '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span>' +
-         '<span style="margin-left:auto;display:flex;gap:6px;">' +
-           '<button class="btn btn-pin ' + (isPinned ? 'active' : '') + '" onclick="togglePinProject(\'' + pid + '\', ' + isPinned + ')">' + (isPinned ? 'Unpin' : 'Pin') + '</button>' +
-           '<button class="btn btn-archive ' + (isArchived ? 'active' : '') + '" onclick="toggleArchiveProject(\'' + pid + '\', ' + isArchived + ')">' + (isArchived ? 'Unarchive' : 'Archive') + '</button>' +
-         '</span>' +
-       '</div>' +
-       '<div class="project-plans">' + planCards + '</div>' +
-     '</div>';
-   }).join('');
+      const projData = projects.find(p => p.id === pid);
+      const name = projData ? projData.name : (pid.slice(0, 8) + '...');
+      const isPinned = projData ? projData.is_pinned : false;
+      const isArchived = projData ? projData.is_archived : false;
+      const planCards = groups[pid].map(renderPlanCard).join('');
+      return '<div class="project-group">' +
+        '<div class="project-header">' +
+          esc(name) +
+          '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span>' +
+          '<span style="margin-left:auto;display:flex;gap:6px;">' +
+            '<button class="btn btn-pin ' + (isPinned ? 'active' : '') + '" onclick="togglePinProject(\'' + pid + '\', ' + isPinned + ')">' + (isPinned ? 'Unpin' : 'Pin') + '</button>' +
+            '<button class="btn btn-archive ' + (isArchived ? 'active' : '') + '" onclick="toggleArchiveProject(\'' + pid + '\', ' + isArchived + ')">' + (isArchived ? 'Unarchive' : 'Archive') + '</button>' +
+          '</span>' +
+        '</div>' +
+        '<div class="project-plans">' + planCards + '</div>' +
+      '</div>';
+    }).join('');
 }
 
 function esc(s) {
