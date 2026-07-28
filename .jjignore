@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.env
+local.db
+*.db
+node_modules/
+.vscode/
+.idea/
+.git/
