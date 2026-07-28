@@ -276,3 +276,31 @@ class PlanAPI:
                 return response.json()
         except httpx.ConnectError:
             raise PlanConnectionError(self.base_url)
+
+    async def archive_project(self, project_id: str) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.base_url}/api/projects/{project_id}/archive",
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
+    async def unarchive_project(self, project_id: str) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.base_url}/api/projects/{project_id}/unarchive",
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)

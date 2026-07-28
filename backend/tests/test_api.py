@@ -284,3 +284,76 @@ async def test_pin_nonexistent_project():
             headers=headers,
         )
         assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_archive_project():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "arch1@example.com")
+
+        rp = await client.post("/api/projects", json={"name": "ToArchive"}, headers=headers)
+        assert rp.status_code == 201
+        pid = rp.json()["id"]
+        assert rp.json()["is_archived"] is False
+
+        rar = await client.post(f"/api/projects/{pid}/archive", headers=headers)
+        assert rar.status_code == 200
+        assert rar.json()["is_archived"] is True
+
+        rl = await client.get("/api/projects", headers=headers)
+        assert rl.status_code == 200
+        assert len(rl.json()["projects"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_unarchive_project():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "unarch1@example.com")
+
+        rp = await client.post("/api/projects", json={"name": "ToUnarchive"}, headers=headers)
+        pid = rp.json()["id"]
+
+        await client.post(f"/api/projects/{pid}/archive", headers=headers)
+
+        rlear = await client.post(f"/api/projects/{pid}/unarchive", headers=headers)
+        assert rlear.status_code == 200
+        assert rlear.json()["is_archived"] is False
+
+        rl = await client.get("/api/projects", headers=headers)
+        assert rl.status_code == 200
+        assert len(rl.json()["projects"]) == 1
+        assert rl.json()["projects"][0]["name"] == "ToUnarchive"
+
+
+@pytest.mark.asyncio
+async def test_archive_nonexistent_project():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "archbad@example.com")
+        r = await client.post(
+            "/api/projects/00000000-0000-0000-0000-000000000000/archive",
+            headers=headers,
+        )
+        assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_unarchive_nonexistent_project():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "unarchbad@example.com")
+        r = await client.post(
+            "/api/projects/00000000-0000-0000-0000-000000000000/unarchive",
+            headers=headers,
+        )
+        assert r.status_code == 404

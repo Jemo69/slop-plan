@@ -21,6 +21,7 @@ class Project(models.Model):
     user = fields.ForeignKeyField("models.User", related_name="projects", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
+    is_archived = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:

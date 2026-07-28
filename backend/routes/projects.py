@@ -18,6 +18,7 @@ class ProjectResponse(BaseModel):
     name: str
     description: Optional[str]
     is_pinned: bool = False
+    is_archived: bool = False
     created_at: str
 
 
@@ -27,7 +28,7 @@ class ProjectListResponse(BaseModel):
 
 @router.get("", response_model=ProjectListResponse)
 async def list_projects(user: User = Depends(get_current_user)):
-    projects = await Project.filter(user_id=user.id).all()
+    projects = await Project.filter(user_id=user.id, is_archived=False).all()
 
     pinned_project_ids = set(
         await ProjectPin.filter(user_id=user.id).values_list("project_id", flat=True)
@@ -40,6 +41,7 @@ async def list_projects(user: User = Depends(get_current_user)):
             name=p.name,
             description=p.description,
             is_pinned=p.id in pinned_project_ids,
+            is_archived=p.is_archived,
             created_at=p.created_at.isoformat() if p.created_at else "",
         ))
 
@@ -82,6 +84,7 @@ async def get_project(
         name=project.name,
         description=project.description,
         is_pinned=pin is not None,
+        is_archived=project.is_archived,
         created_at=project.created_at.isoformat() if project.created_at else "",
     )
 
@@ -149,3 +152,73 @@ async def unpin_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     await ProjectPin.filter(user_id=user.id, project_id=project.id).delete()
+
+
+@router.post("/{project_id}/archive", response_model=ProjectResponse, status_code=200)
+async def archive_project(
+    project_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid project_id format")
+
+    project = await Project.filter(id=project_id, user_id=user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.is_archived:
+        return ProjectResponse(
+            id=str(project.id),
+            name=project.name,
+            description=project.description,
+            is_archived=True,
+            created_at=project.created_at.isoformat() if project.created_at else "",
+        )
+
+    project.is_archived = True
+    await project.save()
+
+    return ProjectResponse(
+        id=str(project.id),
+        name=project.name,
+        description=project.description,
+        is_archived=True,
+        created_at=project.created_at.isoformat() if project.created_at else "",
+    )
+
+
+@router.post("/{project_id}/unarchive", response_model=ProjectResponse, status_code=200)
+async def unarchive_project(
+    project_id: str,
+    user: User = Depends(get_current_user),
+):
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid project_id format")
+
+    project = await Project.filter(id=project_id, user_id=user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.is_archived:
+        return ProjectResponse(
+            id=str(project.id),
+            name=project.name,
+            description=project.description,
+            is_archived=False,
+            created_at=project.created_at.isoformat() if project.created_at else "",
+        )
+
+    project.is_archived = False
+    await project.save()
+
+    return ProjectResponse(
+        id=str(project.id),
+        name=project.name,
+        description=project.description,
+        is_archived=False,
+        created_at=project.created_at.isoformat() if project.created_at else "",
+    )
