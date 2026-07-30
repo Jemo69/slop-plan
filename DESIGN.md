@@ -15,6 +15,8 @@ Encase, tuned for a developer workspace. The interface uses hard containment, bi
 - Warning: `#C99100`
 - Danger: `#B42318`
 
+Dark mode swaps the neutral surfaces to `#11110F`, `#1C1C19`, and `#262622`, keeps the accent at `#D8FF3E`, and raises muted text to `#C0C0B8` for readable contrast.
+
 Use the accent only for focus, pinned or published state, and small readiness signals. Use black and white for structure.
 
 ## Typography
@@ -35,3 +37,5 @@ The dashboard uses a top command bar, a compact workspace rail on desktop, and a
 ## Interaction
 
 Loading uses skeleton rows. Errors stay inline with a retry action. Empty states teach the CLI command. Preview uses the native dialog element. All actions expose focus states, work from the keyboard, and honor reduced-motion preferences.
+
+The theme toggle appears in the landing page header and dashboard command bar. It follows the system preference on first visit, persists an explicit choice in `localStorage`, and updates the browser theme color.
