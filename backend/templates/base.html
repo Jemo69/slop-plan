@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0a0a">
   <title>{% block title %}HTML Planner{% endblock %}</title>
+  <script>
+    (() => {
+      const stored = localStorage.getItem('html_planner_theme');
+      const preferred = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = preferred;
+    })();
+  </script>
   <style>
     :root {
       --ink: #0a0a0a;
@@ -23,6 +30,20 @@
       --z-modal-backdrop: 40;
       --z-modal: 50;
       --z-toast: 60;
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      --ink: #f5f5f0;
+      --paper: #11110f;
+      --surface: #1c1c19;
+      --panel: #262622;
+      --line: #f5f5f0;
+      --muted: #c0c0b8;
+      --quiet: #8e8e87;
+      --warning: #ffd36b;
+      --danger: #ff8c82;
+      color-scheme: dark;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -54,6 +75,23 @@
       text-transform: uppercase;
     }
     .encase-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 11px;
+      border: 2px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+    .theme-toggle:hover { background: var(--panel); }
+    .theme-toggle-icon { font-size: 15px; line-height: 1; }
   </style>
 </head>
 <body>
