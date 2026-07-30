@@ -47,6 +47,7 @@ class PlanResponse(BaseModel):
     frontmatter: Optional[dict]
     is_public: bool
     is_approved: bool
+    is_archived: bool = False
     is_pinned: bool = False
     approved_at: Optional[str]
     approved_by: Optional[str]
@@ -75,6 +76,7 @@ def to_response(p: Plan, is_pinned: bool = False) -> PlanResponse:
         frontmatter=p.frontmatter,
         is_public=p.is_public,
         is_approved=p.is_approved,
+        is_archived=p.is_archived,
         is_pinned=is_pinned,
         approved_at=p.approved_at.isoformat() if p.approved_at else None,
         approved_by=p.approved_by,

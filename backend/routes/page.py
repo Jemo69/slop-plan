@@ -80,6 +80,7 @@ def _require_templates() -> Jinja2Templates:
     return templates
 
 
+@router.get("/", response_class=HTMLResponse, tags=["templates"])
 @router.get("/app", response_class=HTMLResponse, tags=["templates"])
 async def template_home(request: Request):
     return _require_templates().TemplateResponse(request, "index.html")
