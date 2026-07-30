@@ -1,0 +1,6 @@
+{
+  "files": ["backend/templates/*.html"],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}
