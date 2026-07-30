@@ -1,465 +1,588 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plan Dashboard</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
-  .header { background: #1a1a2e; border-bottom: 1px solid #333; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .header h1 { font-size: 18px; color: #fff; }
-  .header .email { color: #888; font-size: 13px; }
-  .header button { background: #333; color: #ccc; border: 1px solid #555; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .header button:hover { background: #444; }
-  .container { max-width: 900px; margin: 0 auto; padding: 24px; }
-  .login-box { max-width: 400px; margin: 80px auto; text-align: center; }
-  .login-box h2 { margin-bottom: 16px; font-size: 20px; }
-  .login-box input { width: 100%; padding: 10px 14px; background: #1a1a2e; border: 1px solid #333; color: #fff; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-  .login-box button { width: 100%; padding: 10px; background: #6c5ce7; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
-  .login-box button:hover { background: #5a4bd1; }
-  .login-box .hint { color: #666; font-size: 12px; margin-top: 8px; }
-  .stats { display: flex; gap: 16px; margin-bottom: 24px; }
-  .stat { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; flex: 1; }
-  .stat .num { font-size: 28px; font-weight: 700; color: #6c5ce7; }
-  .stat .label { color: #888; font-size: 12px; margin-top: 4px; }
-  .project-group { margin-bottom: 28px; }
-  .project-group:last-child { margin-bottom: 0; }
-  .project-header { font-size: 16px; font-weight: 700; color: #6c5ce7; padding: 0 4px 10px 4px; border-bottom: 1px solid #333; margin-bottom: 10px; }
-  .project-header .plan-count { font-size: 12px; color: #666; font-weight: 400; margin-left: 8px; }
-  .project-plans { display: flex; flex-direction: column; gap: 8px; }
-  .plan-card { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; transition: border-color 0.15s; }
-  .plan-card:hover { border-color: #6c5ce7; }
-  .plan-card.approved { border-color: #10b981; }
-  .plan-info { flex: 1; }
-  .plan-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; }
-  .plan-meta { font-size: 12px; color: #666; }
-  .plan-meta .approved-info { color: #10b981; margin-left: 8px; }
-  .plan-actions { display: flex; gap: 8px; align-items: center; }
-  .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
-  .badge.public { background: #1b4332; color: #52b788; }
-  .badge.private { background: #3d1f1f; color: #e07070; }
-  .badge.approved { background: #064e3b; color: #10b981; }
-  .badge.pending { background: #78350f; color: #fbbf24; }
-  .btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid #444; text-decoration: none; }
-  .btn-view { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
-  .btn-view:hover { background: #5a4bd1; }
-  .btn-approve { background: #10b981; color: #fff; border-color: #10b981; }
-  .btn-approve:hover { background: #059669; }
-  .btn-unapprove { background: transparent; color: #fbbf24; border-color: #fbbf24; }
-  .btn-unapprove:hover { background: #78350f; }
-.btn-archive { background: transparent; color: #e07070; border-color: #5a3030; }
-.btn-archive:hover { background: #3d1f1f; }
-.btn-archive.active { background: #78350f; color: #fbbf24; border-color: #fbbf24; }
-.btn-pin { background: transparent; color: #fbbf24; border-color: #78350f; }
-.btn-pin:hover { background: #78350f; }
-.btn-pin.active { background: #fbbf24; color: #1a1a2e; border-color: #fbbf24; }
-  .empty { text-align: center; padding: 60px 20px; color: #666; }
-  .empty p { margin-bottom: 16px; }
-  .loading { text-align: center; padding: 40px; color: #666; }
-  .error { background: #3d1f1f; border: 1px solid #5a3030; color: #e07070; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
-  .toast { position: fixed; bottom: 20px; right: 20px; background: #6c5ce7; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  .preview-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; }
-  .preview-modal.open { display: flex; align-items: center; justify-content: center; }
-  .preview-frame { width: 90vw; height: 85vh; background: #fff; border-radius: 12px; border: none; }
-  .preview-close { position: fixed; top: 16px; right: 20px; background: #333; color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; z-index: 101; }
-  @media (max-width: 640px) {
-    .header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
-    .header h1 { width: 100%; }
-    .header .email { display: none; }
-    .container { padding: 16px; }
-    .stats { flex-wrap: wrap; }
-    .stat { flex: 1 1 calc(50% - 8px); min-width: 0; padding: 12px 14px; }
-    .stat .num { font-size: 22px; }
-    .login-box { margin: 60px 16px; }
-    .plan-card { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
-    .plan-info { width: 100%; }
-    .plan-actions { width: 100%; flex-wrap: wrap; }
-    .btn { padding: 8px 14px; font-size: 13px; }
-    .preview-frame { width: 100vw; height: 100vh; border-radius: 0; }
-    .preview-close { top: 8px; right: 8px; width: 40px; height: 40px; font-size: 20px; }
-    .toast { left: 16px; right: 16px; bottom: 16px; text-align: center; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Dashboard | HTML Planner</title>
+  <style>
+    :root {
+      --ink: #0a0a0a;
+      --paper: #f4f4f1;
+      --surface: #ffffff;
+      --panel: #e8e8e4;
+      --line: #0a0a0a;
+      --muted: #5f5f5a;
+      --quiet: #888882;
+      --accent: #d8ff3e;
+      --warning: #c99100;
+      --danger: #b42318;
+      --radius: 10px;
+      --z-dropdown: 20;
+      --z-sticky: 30;
+      --z-modal-backdrop: 40;
+      --z-modal: 50;
+      --z-toast: 60;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: "Arial", "Helvetica Neue", sans-serif; font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+    button, input { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    ::selection { background: var(--accent); color: var(--ink); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--panel); }
+    ::-webkit-scrollbar-thumb { background: var(--ink); border: 3px solid var(--panel); border-radius: 8px; }
+
+    .encase-label { font-size: 11px; font-weight: 800; letter-spacing: .09em; line-height: 1.2; text-transform: uppercase; }
+    .encase-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    [hidden] { display: none !important; }
+
+    .auth-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); min-height: 100vh; }
+    .auth-hero { display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; padding: clamp(28px, 5vw, 64px); background: var(--ink); color: var(--surface); }
+    .auth-brand { display: inline-flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
+    .auth-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 2px solid var(--surface); border-radius: 8px; color: var(--accent); font-size: 12px; font-weight: 900; }
+    .auth-brand-name { font-size: 13px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .auth-hero-copy { max-width: 560px; padding: 48px 0; }
+    .auth-hero-copy h1 { max-width: 9ch; margin: 18px 0 22px; font-size: clamp(46px, 7vw, 88px); line-height: .94; letter-spacing: -.045em; text-wrap: balance; }
+    .auth-hero-copy p { max-width: 40ch; margin: 0; color: #bcbcb7; font-size: 17px; line-height: 1.55; }
+    .auth-hero-footer { display: flex; align-items: center; gap: 8px; color: #a8a8a2; }
+    .auth-hero-footer i { width: 8px; height: 8px; border: 1px solid var(--ink); border-radius: 50%; background: var(--accent); }
+    .auth-panel { display: grid; place-items: center; padding: 32px; background: var(--paper); }
+    .auth-form-wrap { width: min(100%, 420px); }
+    .auth-form-wrap h2 { margin: 0 0 8px; font-size: 30px; line-height: 1; letter-spacing: -.025em; }
+    .auth-form-wrap > p { margin: 0 0 28px; color: var(--muted); }
+    .auth-form { display: grid; gap: 16px; }
+    .field { display: grid; gap: 8px; }
+    .field label { font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .field input { width: 100%; min-height: 48px; padding: 0 13px; border: 2px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+    .field input::placeholder { color: #676762; }
+    .auth-submit { min-height: 50px; margin-top: 4px; border: 2px solid var(--ink); border-radius: 8px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .auth-submit:hover { background: #292929; }
+    .auth-note { margin: 20px 0 0; color: var(--muted); font-size: 12px; }
+    .auth-error { min-height: 20px; margin: 0; color: var(--danger); font-size: 13px; font-weight: 700; }
+
+    .app-shell { min-height: 100vh; }
+    .topbar { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 68px; padding: 12px 24px; border-bottom: 2px solid var(--line); background: var(--surface); }
+    .topbar-brand { display: inline-flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+    .topbar-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid var(--line); border-radius: 7px; background: var(--ink); color: var(--accent); font-size: 10px; font-weight: 900; }
+    .topbar-name { font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .topbar-email { max-width: 240px; overflow: hidden; color: var(--muted); font: 12px "SFMono-Regular", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-logout { min-height: 34px; padding: 0 12px; border: 2px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+    .topbar-logout:hover { background: var(--panel); }
+    .app-frame { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 68px); }
+    .sidebar { display: flex; flex-direction: column; gap: 26px; padding: 28px 16px 24px; border-right: 2px solid var(--line); background: var(--panel); }
+    .sidebar-section { display: grid; gap: 9px; }
+    .sidebar-heading { padding: 0 10px; color: var(--muted); }
+    .sidebar-link { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding: 0 10px; border: 2px solid transparent; border-radius: 7px; color: var(--ink); font-size: 12px; font-weight: 900; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .sidebar-link:hover { border-color: var(--ink); background: var(--surface); }
+    .sidebar-link.active { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+    .sidebar-link span { color: var(--quiet); font: 11px "SFMono-Regular", Consolas, monospace; }
+    .sidebar-link.active span { color: var(--accent); }
+    .sidebar-cli { margin-top: auto; padding: 14px 12px; border: 2px solid var(--ink); border-radius: 8px; background: var(--ink); color: var(--surface); }
+    .sidebar-cli p { margin: 8px 0 0; color: #bcbcb7; font-size: 12px; line-height: 1.5; }
+    .workspace { min-width: 0; padding: clamp(24px, 4vw, 52px); }
+    .workspace-inner { width: min(1160px, 100%); margin: 0 auto; }
+    .workspace-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+    .workspace-heading h1 { margin: 8px 0 0; font-size: 38px; line-height: 1; letter-spacing: -.035em; }
+    .workspace-kicker { color: var(--muted); }
+    .refresh-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 13px; border: 2px solid var(--line); border-radius: 7px; background: var(--surface); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+    .refresh-button:hover { background: var(--panel); }
+    .refresh-button[aria-busy="true"] { pointer-events: none; opacity: .62; }
+    .status-line { min-height: 20px; margin: -12px 0 16px; color: var(--muted); font-size: 12px; }
+    .error-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; padding: 12px 14px; border: 2px solid var(--danger); border-radius: 8px; background: #fff5f4; color: var(--danger); font-size: 13px; font-weight: 700; }
+    .error-box button { border: 0; background: transparent; color: inherit; font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+    .stat-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 28px; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+    .stat-cell { min-width: 0; padding: 16px 18px; border-right: 2px solid var(--line); }
+    .stat-cell:last-child { border-right: 0; }
+    .stat-value { display: block; margin-bottom: 4px; font-size: 28px; font-weight: 900; line-height: 1; }
+    .stat-label { color: var(--muted); }
+    .control-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; }
+    .search-wrap input { width: 100%; min-height: 42px; padding: 0 14px 0 38px; border: 2px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); }
+    .search-wrap input::placeholder { color: #676762; }
+    .search-icon { position: absolute; top: 11px; left: 13px; font-size: 15px; font-weight: 900; }
+    .filter-set { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filter-button { min-height: 34px; padding: 0 10px; border: 2px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink); font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+    .filter-button:hover { background: var(--surface); }
+    .filter-button.active { background: var(--ink); color: var(--surface); }
+    .project-group { margin-bottom: 28px; }
+    .project-header { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 2px solid var(--line); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--ink); color: var(--surface); }
+    .project-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 900; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .project-count { color: #bcbcb7; font-size: 11px; }
+    .project-actions { display: flex; gap: 6px; margin-left: auto; }
+    .project-action { min-height: 27px; padding: 0 8px; border: 1px solid #bcbcb7; border-radius: 5px; background: transparent; color: var(--surface); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+    .project-action:hover, .project-action.active { border-color: var(--accent); color: var(--accent); }
+    .plan-list { border: 2px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); background: var(--surface); overflow: hidden; }
+    .plan-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(180px, .8fr) auto; align-items: center; gap: 20px; padding: 16px 18px; border-bottom: 1px solid #c9c9c4; }
+    .plan-row:last-child { border-bottom: 0; }
+    .plan-row:hover { background: #fbfbf9; }
+    .plan-main { min-width: 0; }
+    .plan-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .plan-pin { color: var(--warning); font-size: 13px; }
+    .plan-title { overflow: hidden; font-size: 14px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+    .plan-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; color: var(--muted); font: 11px "SFMono-Regular", Consolas, monospace; }
+    .plan-meta code { color: var(--ink); }
+    .plan-status { display: flex; flex-wrap: wrap; gap: 6px; }
+    .badge { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+    .badge::before { content: ""; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--quiet); }
+    .badge-approved::before, .badge-public::before { background: var(--accent); }
+    .badge-pending::before { background: var(--warning); }
+    .badge-private::before { background: var(--ink); }
+    .badge-archived { color: var(--muted); }
+    .plan-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
+    .plan-button { min-height: 30px; padding: 0 9px; border: 2px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+    .plan-button:hover { background: var(--panel); }
+    .plan-button-primary { background: var(--ink); color: var(--surface); }
+    .plan-button-primary:hover { background: #2a2a2a; }
+    .plan-button-danger { border-color: var(--danger); color: var(--danger); }
+    .plan-button-danger:hover { background: #fff5f4; }
+    .empty-state { padding: 56px 24px; text-align: center; }
+    .empty-state h2 { margin: 0 0 8px; font-size: 23px; letter-spacing: -.02em; }
+    .empty-state p { max-width: 50ch; margin: 0 auto 18px; color: var(--muted); }
+    .empty-command { display: inline-block; max-width: 100%; overflow: auto; padding: 11px 13px; border: 2px solid var(--line); border-radius: 7px; background: var(--ink); color: var(--accent); font: 12px "SFMono-Regular", Consolas, monospace; text-align: left; white-space: nowrap; }
+    .skeleton-list { display: grid; gap: 1px; background: #c9c9c4; }
+    .skeleton-row { min-height: 86px; padding: 18px; background: var(--surface); }
+    .skeleton-line { height: 11px; border-radius: 3px; background: var(--panel); animation: pulse 1.2s ease-in-out infinite; }
+    .skeleton-line + .skeleton-line { width: 45%; margin-top: 12px; }
+    @keyframes pulse { 50% { opacity: .45; } }
+    dialog.preview-dialog { width: min(1200px, calc(100vw - 32px)); height: min(820px, calc(100vh - 48px)); padding: 0; border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 8px 8px 0 var(--ink); }
+    dialog.preview-dialog::backdrop { background: rgba(10, 10, 10, .78); }
+    .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding: 10px 14px 10px 18px; border-bottom: 2px solid var(--line); background: var(--ink); color: var(--surface); }
+    .preview-title { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 900; letter-spacing: .07em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .preview-close { width: 32px; height: 32px; border: 1px solid var(--surface); border-radius: 6px; background: transparent; color: var(--surface); font-size: 20px; line-height: 1; }
+    .preview-close:hover { background: var(--surface); color: var(--ink); }
+    .preview-frame { display: block; width: 100%; height: calc(100% - 52px); border: 0; background: var(--surface); }
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: var(--z-toast); max-width: min(360px, calc(100vw - 44px)); padding: 13px 16px; border: 2px solid var(--surface); border-radius: 7px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 800; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease-out, transform .18s ease-out; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+    @media (max-width: 980px) {
+      .app-frame { grid-template-columns: 184px minmax(0, 1fr); }
+      .sidebar { padding-inline: 10px; }
+      .plan-row { grid-template-columns: minmax(0, 1fr) auto; }
+      .plan-status { grid-column: 1 / -1; grid-row: 2; }
+    }
+    @media (max-width: 760px) {
+      .auth-shell { grid-template-columns: 1fr; }
+      .auth-hero { min-height: auto; padding: 24px; }
+      .auth-hero-copy { padding: 52px 0 36px; }
+      .auth-hero-copy h1 { font-size: clamp(48px, 14vw, 72px); }
+      .auth-panel { min-height: 520px; padding: 32px 24px 56px; }
+      .app-frame { display: block; }
+      .sidebar { display: none; }
+      .workspace { padding: 24px 16px 48px; }
+      .workspace-heading { align-items: start; flex-direction: column; }
+      .workspace-heading h1 { font-size: 34px; }
+      .control-row { align-items: stretch; flex-direction: column; }
+      .search-wrap { min-width: 0; }
+    }
+    @media (max-width: 520px) {
+      .topbar { padding: 12px 16px; }
+      .topbar-email { display: none; }
+      .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stat-cell { border-bottom: 2px solid var(--line); }
+      .stat-cell:nth-child(2) { border-right: 0; }
+      .stat-cell:nth-child(3), .stat-cell:nth-child(4) { border-bottom: 0; }
+      .plan-row { grid-template-columns: 1fr; gap: 12px; padding: 16px 14px; }
+      .plan-status { grid-column: auto; grid-row: auto; }
+      .plan-actions { justify-content: start; }
+      .project-header { align-items: start; flex-wrap: wrap; padding-block: 10px; }
+      .project-actions { width: 100%; margin-left: 0; }
+      .preview-frame { height: calc(100% - 52px); }
+    }
+  </style>
 </head>
 <body>
-
-<div id="login-view" class="login-box" style="display:none;">
-  <h2>Plan Dashboard</h2>
-  <input type="email" id="email-input" placeholder="you@example.com" />
-  <input type="password" id="password-input" placeholder="Password" />
-  <button onclick="doLogin()">Login / Register</button>
-  <p class="hint">Enter your email and password to login or create an account</p>
-</div>
-
-<div id="app-view" style="display:none;">
-  <div class="header">
-    <h1>Plan Dashboard</h1>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span class="email" id="user-email"></span>
-      <button onclick="window.location.href='/dashboard'">Home</button>
-      <button onclick="doLogout()">Logout</button>
+  <section id="login-view" class="auth-shell" hidden>
+    <div class="auth-hero">
+      <a class="auth-brand" href="/" aria-label="HTML Planner home">
+        <span class="auth-mark" aria-hidden="true">HP</span>
+        <span class="auth-brand-name">HTML Planner</span>
+      </a>
+      <div class="auth-hero-copy">
+        <span class="encase-label" style="color:var(--accent);">Workspace access</span>
+        <h1>Ship the plan you can see.</h1>
+        <p>Review generated HTML, mark the version that is ready, and share a public URL without leaving your workflow.</p>
+      </div>
+      <div class="auth-hero-footer encase-label"><i aria-hidden="true"></i> Local-first plan control</div>
     </div>
-  </div>
-  <div class="container">
-    <div id="error-box" class="error" style="display:none;"></div>
-    <div class="stats" id="stats"></div>
-    <div id="plan-list" class="plan-list"></div>
-  </div>
-</div>
+    <div class="auth-panel">
+      <div class="auth-form-wrap">
+        <span class="encase-label">Sign in to continue</span>
+        <h2>Open workspace</h2>
+        <p>Use your email and password. New accounts are created automatically.</p>
+        <form id="login-form" class="auth-form">
+          <div class="field">
+            <label for="email-input">Email address</label>
+            <input id="email-input" type="email" autocomplete="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="password-input">Password</label>
+            <input id="password-input" type="password" autocomplete="current-password" placeholder="At least 8 characters" required>
+          </div>
+          <p id="login-error" class="auth-error" role="alert"></p>
+          <button id="login-submit" class="auth-submit" type="submit">Enter workspace</button>
+        </form>
+        <p class="auth-note">Your API key stays in this browser and is used only for your workspace requests.</p>
+      </div>
+    </div>
+  </section>
 
-<div id="empty-view" class="empty" style="display:none;">
-  <h2>No plans yet</h2>
-  <p>Create your first plan with the CLI:</p>
-  <code style="background:#1a1a2e;padding:8px 12px;border-radius:6px;display:inline-block;">plan create -p &lt;project-id&gt; -t "My Plan" --html plan.html</code>
-</div>
+  <section id="app-view" class="app-shell" hidden>
+    <header class="topbar">
+      <a class="topbar-brand" href="/dashboard" aria-label="HTML Planner dashboard">
+        <span class="topbar-mark" aria-hidden="true">HP</span>
+        <span class="topbar-name">HTML Planner</span>
+      </a>
+      <div class="topbar-right">
+        <span id="user-email" class="topbar-email"></span>
+        <button id="logout-button" class="topbar-logout" type="button">Log out</button>
+      </div>
+    </header>
 
-<div class="preview-modal" id="preview-modal">
-  <button class="preview-close" onclick="closePreview()">&times;</button>
-  <iframe class="preview-frame" id="preview-frame"></iframe>
-</div>
+    <div class="app-frame">
+      <aside class="sidebar" aria-label="Workspace navigation">
+        <div class="sidebar-section">
+          <div class="sidebar-heading encase-label">Workspace</div>
+          <a class="sidebar-link active" href="/dashboard" aria-current="page">Dashboard <span>↗</span></a>
+          <a class="sidebar-link" href="/" >Home <span>↗</span></a>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-heading encase-label">Shortcuts</div>
+          <a class="sidebar-link" href="#plans">All plans <span id="sidebar-plan-count">0</span></a>
+          <a class="sidebar-link" href="#cli">CLI workflow <span>⌘</span></a>
+        </div>
+        <div class="sidebar-cli" id="cli">
+          <div class="encase-label" style="color:var(--accent);">CLI handoff</div>
+          <p class="encase-mono">plan create -p &lt;project-id&gt; -t "Plan" --html plan.html</p>
+        </div>
+      </aside>
 
-<div class="toast" id="toast"></div>
+      <main class="workspace" id="plans">
+        <div class="workspace-inner">
+          <div class="workspace-heading">
+            <div>
+              <div class="workspace-kicker encase-label">Plan inventory / live workspace</div>
+              <h1>Dashboard</h1>
+            </div>
+            <button id="refresh-button" class="refresh-button" type="button" aria-busy="false"><span aria-hidden="true">↻</span> Refresh plans</button>
+          </div>
+          <div id="status-line" class="status-line" role="status" aria-live="polite"></div>
+          <div id="error-box" class="error-box" role="alert" hidden><span id="error-message"></span><button id="retry-button" type="button">Retry</button></div>
+          <div id="stats" class="stat-strip" aria-label="Plan summary"></div>
+          <div class="control-row">
+            <label class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <span class="sr-only">Search plans</span>
+              <input id="search-input" type="search" placeholder="Search plan titles or projects" autocomplete="off">
+            </label>
+            <div class="filter-set" role="group" aria-label="Filter plans">
+              <button class="filter-button active" type="button" data-filter="all" aria-pressed="true">All</button>
+              <button class="filter-button" type="button" data-filter="review" aria-pressed="false">Needs review</button>
+              <button class="filter-button" type="button" data-filter="approved" aria-pressed="false">Approved</button>
+              <button class="filter-button" type="button" data-filter="public" aria-pressed="false">Published</button>
+            </div>
+          </div>
+          <div id="plan-list" aria-live="polite"></div>
+        </div>
+      </main>
+    </div>
+  </section>
 
-<script>
-const API = window.location.origin;
-let apiKey = localStorage.getItem('plan_api_key');
-let userEmail = localStorage.getItem('plan_email');
+  <dialog id="preview-modal" class="preview-dialog" aria-labelledby="preview-title">
+    <div class="preview-header">
+      <div id="preview-title" class="preview-title">Plan preview</div>
+      <button id="preview-close" class="preview-close" type="button" aria-label="Close preview">×</button>
+    </div>
+    <iframe id="preview-frame" class="preview-frame" title="HTML plan preview"></iframe>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
+  <script>
+    const API = window.location.origin;
+    let apiKey = localStorage.getItem('plan_api_key');
+    let userEmail = localStorage.getItem('plan_email');
+    let allPlans = [];
+    let allProjects = [];
+    let activeFilter = 'all';
+    let searchTerm = '';
+    let toastTimer;
 
-function show(id) {
-  ['login-view','app-view','empty-view'].forEach(v => document.getElementById(v).style.display = 'none');
-  document.getElementById(id).style.display = '';
-}
+    const $ = (id) => document.getElementById(id);
+    const loginView = $('login-view');
+    const appView = $('app-view');
 
-function headers() {
-  return { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' };
-}
+    function escapeHtml(value) {
+      const node = document.createElement('div');
+      node.textContent = value == null ? '' : String(value);
+      return node.innerHTML;
+    }
 
-async function doLogin() {
-  const input = document.getElementById('email-input');
-  const email = input.value.trim();
-  const password = document.getElementById('password-input').value;
-  if (!email || !email.includes('@')) {
-    toast('Enter a valid email');
-    return;
-  }
-  if (!password) {
-    toast('Enter a password');
-    return;
-  }
+    function showToast(message) {
+      const toast = $('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+    }
 
-  try {
-    const res = await fetch(API + '/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
-    });
-    if (res.ok) {
-      const data = await res.json();
+    function setView(view) {
+      loginView.hidden = view !== 'login';
+      appView.hidden = view !== 'app';
+    }
+
+    function setSession(data, email) {
       apiKey = data.api_key;
       userEmail = email;
       localStorage.setItem('plan_api_key', apiKey);
       localStorage.setItem('plan_email', email);
-      loadPlans();
-      return;
     }
-  } catch (e) { }
 
-  try {
-    const res = await fetch(API + '/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      apiKey = data.api_key;
-      userEmail = email;
-      localStorage.setItem('plan_api_key', apiKey);
-      localStorage.setItem('plan_email', email);
-      toast('Account created!');
-      loadPlans();
-      return;
+    function headers() {
+      return { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' };
     }
-    const err = await res.json().catch(() => ({}));
-    toast(err.detail || 'Login failed');
-  } catch (e) {
-    toast('Connection error');
-  }
-}
 
-function doLogout() {
-  localStorage.removeItem('plan_api_key');
-  localStorage.removeItem('plan_email');
-  apiKey = null;
-  userEmail = null;
-  show('login-view');
-}
+    function renderSkeleton() {
+      $('plan-list').innerHTML = '<div class="skeleton-list" aria-label="Loading plans"><div class="skeleton-row"><div class="skeleton-line"></div><div class="skeleton-line"></div></div><div class="skeleton-row"><div class="skeleton-line"></div><div class="skeleton-line"></div></div><div class="skeleton-row"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>';
+    }
 
-function showError(msg) {
-  const box = document.getElementById('error-box');
-  box.textContent = msg;
-  box.style.display = '';
-}
+    function formatDate(value) {
+      if (!value) return 'No date';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'No date';
+      return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+    }
 
-async function loadPlans() {
-  if (!apiKey) { show('login-view'); return; }
-  show('app-view');
-  document.getElementById('user-email').textContent = userEmail || '';
-  document.getElementById('error-box').style.display = 'none';
-  document.getElementById('plan-list').innerHTML = '<div class="loading">Loading plans...</div>';
+    function renderStats() {
+      const approved = allPlans.filter((plan) => plan.is_approved).length;
+      const published = allPlans.filter((plan) => plan.is_public).length;
+      const review = allPlans.filter((plan) => !plan.is_approved).length;
+      $('stats').innerHTML = [
+        ['Total plans', allPlans.length],
+        ['Needs review', review],
+        ['Approved', approved],
+        ['Published', published]
+      ].map(([label, value]) => '<div class="stat-cell"><span class="stat-value">' + value + '</span><span class="stat-label encase-label">' + label + '</span></div>').join('');
+      $('sidebar-plan-count').textContent = allPlans.length;
+    }
 
-  try {
-    const [plansRes, projectsRes] = await Promise.all([
-      fetch(API + '/api/plans', { headers: headers() }),
-      fetch(API + '/api/projects', { headers: headers() })
-    ]);
-    if (!plansRes.ok) {
-      if (plansRes.status === 401) {
-        localStorage.removeItem('plan_api_key');
-        apiKey = null;
-        show('login-view');
+    function currentPlans() {
+      return allPlans.filter((plan) => {
+        const project = allProjects.find((item) => item.id === plan.project_id);
+        const haystack = (plan.title + ' ' + (project ? project.name : '')).toLowerCase();
+        const matchesSearch = !searchTerm || haystack.includes(searchTerm);
+        const matchesFilter = activeFilter === 'all'
+          || (activeFilter === 'review' && !plan.is_approved)
+          || (activeFilter === 'approved' && plan.is_approved)
+          || (activeFilter === 'public' && plan.is_public);
+        return matchesSearch && matchesFilter;
+      });
+    }
+
+    function renderPlan(plan) {
+      const publicBadge = plan.is_public ? '<span class="badge badge-public">Published</span>' : '<span class="badge badge-private">Private</span>';
+      const reviewBadge = plan.is_approved ? '<span class="badge badge-approved">Approved</span>' : '<span class="badge badge-pending">Needs review</span>';
+      const archiveBadge = plan.is_archived ? '<span class="badge badge-archived">Archived</span>' : '';
+      const previewLabel = plan.is_public ? 'Open public' : 'Preview';
+      const pinLabel = plan.is_pinned ? 'Unpin' : 'Pin';
+      const archiveLabel = plan.is_archived ? 'Unarchive' : 'Archive';
+      const approvalLabel = plan.is_approved ? 'Unapprove' : 'Approve';
+      return '<article class="plan-row" data-plan-id="' + escapeHtml(plan.id) + '">' +
+        '<div class="plan-main"><div class="plan-title-line">' + (plan.is_pinned ? '<span class="plan-pin" title="Pinned plan" aria-label="Pinned">●</span>' : '') + '<span class="plan-title">' + escapeHtml(plan.title) + '</span></div><div class="plan-meta"><code>' + escapeHtml(plan.id.slice(0, 8)) + '</code><span>Updated ' + escapeHtml(formatDate(plan.updated_at)) + '</span>' + (plan.approved_by ? '<span>Approved by ' + escapeHtml(plan.approved_by) + '</span>' : '') + '</div></div>' +
+        '<div class="plan-status">' + publicBadge + reviewBadge + archiveBadge + '</div>' +
+        '<div class="plan-actions"><button class="plan-button plan-button-primary" type="button" data-action="preview" data-plan-id="' + escapeHtml(plan.id) + '" data-public="' + plan.is_public + '" data-slug="' + escapeHtml(plan.slug) + '" data-title="' + escapeHtml(plan.title) + '">' + previewLabel + '</button><button class="plan-button" type="button" data-action="approve" data-plan-id="' + escapeHtml(plan.id) + '">' + approvalLabel + '</button><button class="plan-button" type="button" data-action="pin-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + pinLabel + '</button><button class="plan-button" type="button" data-action="archive-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + archiveLabel + '</button><button class="plan-button plan-button-danger" type="button" data-action="delete" data-plan-id="' + escapeHtml(plan.id) + '">Delete</button></div>' +
+      '</article>';
+    }
+
+    function renderPlans() {
+      const plans = currentPlans();
+      if (!plans.length) {
+        const hasPlans = allPlans.length > 0;
+        $('plan-list').innerHTML = '<div class="empty-state"><h2>' + (hasPlans ? 'No matching plans' : 'Your workspace is clear') + '</h2><p>' + (hasPlans ? 'Try a different search term or filter.' : 'Create your first plan with the CLI, then return here to review and publish it.') + '</p>' + (hasPlans ? '' : '<code class="empty-command">plan create -p &lt;project-id&gt; -t "My Plan" --html plan.html</code>') + '</div>';
         return;
       }
-      const err = await plansRes.json().catch(() => ({}));
-      throw new Error(err.detail || 'Failed to load plans');
+
+      const projectMap = Object.fromEntries(allProjects.map((project) => [project.id, project]));
+      const grouped = {};
+      plans.forEach((plan) => {
+        const projectId = plan.project_id || 'unknown';
+        if (!grouped[projectId]) grouped[projectId] = [];
+        grouped[projectId].push(plan);
+      });
+
+      $('plan-list').innerHTML = Object.entries(grouped).map(([projectId, projectPlans]) => {
+        const project = projectMap[projectId];
+        const projectName = project ? project.name : 'Unknown project';
+        const isPinned = project ? Boolean(project.is_pinned) : false;
+        const isArchived = project ? Boolean(project.is_archived) : false;
+        return '<section class="project-group" aria-labelledby="project-' + escapeHtml(projectId) + '"><div class="project-header"><span id="project-' + escapeHtml(projectId) + '" class="project-name">' + escapeHtml(projectName) + '</span><span class="project-count">' + projectPlans.length + ' plan' + (projectPlans.length === 1 ? '' : 's') + '</span><div class="project-actions"><button class="project-action ' + (isPinned ? 'active' : '') + '" type="button" data-action="pin-project" data-project-id="' + escapeHtml(projectId) + '" data-pinned="' + isPinned + '">' + (isPinned ? 'Unpin project' : 'Pin project') + '</button><button class="project-action" type="button" data-action="archive-project" data-project-id="' + escapeHtml(projectId) + '" data-archived="' + isArchived + '">' + (isArchived ? 'Unarchive project' : 'Archive project') + '</button></div></div><div class="plan-list">' + projectPlans.map(renderPlan).join('') + '</div></section>';
+      }).join('');
     }
-    const plansData = await plansRes.json();
-    const plans = plansData.plans || [];
-    let projects = [];
-    if (projectsRes.ok) {
-      const projectsData = await projectsRes.json();
-      projects = projectsData.projects || [];
+
+    async function loadPlans() {
+      if (!apiKey) { setView('login'); return; }
+      setView('app');
+      $('user-email').textContent = userEmail || '';
+      $('refresh-button').setAttribute('aria-busy', 'true');
+      $('status-line').textContent = 'Syncing workspace…';
+      renderSkeleton();
+      try {
+        const [plansResponse, projectsResponse] = await Promise.all([
+          fetch(API + '/api/plans', { headers: headers() }),
+          fetch(API + '/api/projects', { headers: headers() })
+        ]);
+        if (plansResponse.status === 401 || projectsResponse.status === 401) {
+          doLogout(true);
+          return;
+        }
+        if (!plansResponse.ok) {
+          const error = await plansResponse.json().catch(() => ({}));
+          throw new Error(error.detail || 'Unable to load plans');
+        }
+        const plansData = await plansResponse.json();
+        const projectsData = projectsResponse.ok ? await projectsResponse.json() : { projects: [] };
+        allPlans = plansData.plans || [];
+        allProjects = projectsData.projects || [];
+        $('error-box').hidden = true;
+        renderStats();
+        renderPlans();
+        $('status-line').textContent = 'Last synced just now';
+      } catch (error) {
+        $('error-message').textContent = error.message || 'Unable to load workspace';
+        $('error-box').hidden = false;
+        $('plan-list').innerHTML = '';
+        $('status-line').textContent = 'Workspace sync failed';
+      } finally {
+        $('refresh-button').setAttribute('aria-busy', 'false');
+      }
     }
-    renderPlans(plans, projects);
-  } catch (e) {
-    showError(e.message);
-    document.getElementById('plan-list').innerHTML = '';
-  }
-}
 
-function renderPlanCard(p) {
-  const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '';
-  const publicBadge = p.is_public ? '<span class="badge public">Public</span>' : '<span class="badge private">Private</span>';
-  const approvedBadge = p.is_approved ? '<span class="badge approved">Approved</span>' : '<span class="badge pending">Pending</span>';
-  const approvedClass = p.is_approved ? ' approved' : '';
-  const approvedInfo = p.is_approved && p.approved_by ? '<span class="approved-info">by ' + esc(p.approved_by) + '</span>' : '';
-
-  const approveBtn = p.is_approved
-    ? '<button class="btn btn-unapprove" onclick="unapprovePlan(\'' + p.id + '\')">Unapprove</button>'
-    : '<button class="btn btn-approve" onclick="approvePlan(\'' + p.id + '\')">Approve</button>';
-
-  return '<div class="plan-card' + approvedClass + '">' +
-    '<div class="plan-info">' +
-      '<div class="plan-title">' + esc(p.title) + '</div>' +
-      '<div class="plan-meta">' + esc(p.id.slice(0,8)) + ' &middot; ' + date + approvedInfo + '</div>' +
-    '</div>' +
-    '<div class="plan-actions">' +
-      publicBadge +
-      approvedBadge +
-      approveBtn +
-      (p.is_archived ? '<span class="badge archived">Archived</span>' : '') +
-      '<button class="btn btn-view" onclick="preview(\'' + p.id + '\', ' + p.is_public + ', \'' + esc(p.slug) + '\')">View</button>' +
-      '<button class="btn btn-delete" onclick="delPlan(\'' + p.id + '\')">Delete</button>' +
-      '<button class="btn btn-archive' + (p.is_archived ? ' active' : '') + '" onclick="toggleArchivePlan(\'' + p.id + '\', ' + p.is_archived + ')">' + (p.is_archived ? 'Unarchive' : 'Archive') + '</button>' +
-    '</div>' +
-  '</div>';
-}
-
-function renderPlans(plans, projects) {
-  const list = document.getElementById('plan-list');
-  const stats = document.getElementById('stats');
-
-  const publicCount = plans.filter(p => p.is_public).length;
-  const approvedCount = plans.filter(p => p.is_approved).length;
-  const pendingCount = plans.filter(p => !p.is_approved).length;
-
-  stats.innerHTML =
-    '<div class="stat"><div class="num">' + plans.length + '</div><div class="label">Total Plans</div></div>' +
-    '<div class="stat"><div class="num" style="color:#10b981">' + approvedCount + '</div><div class="label">Approved</div></div>' +
-    '<div class="stat"><div class="num" style="color:#fbbf24">' + pendingCount + '</div><div class="label">Pending</div></div>' +
-    '<div class="stat"><div class="num">' + publicCount + '</div><div class="label">Public</div></div>';
-
-  if (plans.length === 0) {
-    show('empty-view');
-    return;
-  }
-
-  const projectMap = {};
-  projects.forEach(p => { projectMap[p.id] = p.name; });
-
-  const groups = {};
-  const groupOrder = [];
-  plans.forEach(p => {
-    const pid = p.project_id;
-    if (!groups[pid]) {
-      groups[pid] = [];
-      groupOrder.push(pid);
+    async function requestAction(url, options, successMessage) {
+      try {
+        const response = await fetch(API + url, { ...options, headers: headers() });
+        if (response.ok || response.status === 204) {
+          showToast(successMessage);
+          await loadPlans();
+          return;
+        }
+        const error = await response.json().catch(() => ({}));
+        showToast(error.detail || 'Action failed');
+      } catch (error) {
+        showToast('Connection error');
+      }
     }
-    groups[pid].push(p);
-  });
 
-list.innerHTML = groupOrder.map(pid => {
-     const name = projectMap[pid] || 'Unknown Project';
-     const projData = projects.find(p => p.id === pid) || {};
-     const isPinned = projData.is_pinned || false;
-     const isArchived = projData.is_archived || false;
-     const planCards = groups[pid].map(renderPlanCard).join('');
-     return '<div class="project-group">' +
-       '<div class="project-header">' +
-         esc(name) +
-         '<span class="plan-count">' + groups[pid].length + ' plan' + (groups[pid].length !== 1 ? 's' : '') + '</span>' +
-         '<span style="margin-left:auto;display:flex;gap:6px;">' +
-           '<button class="btn btn-pin ' + (isPinned ? 'active' : '') + '" onclick="togglePinProject(\'' + pid + '\', ' + isPinned + ')">' + (isPinned ? 'Unpin' : 'Pin') + '</button>' +
-           '<button class="btn btn-archive ' + (isArchived ? 'active' : '') + '" onclick="toggleArchiveProject(\'' + pid + '\', ' + isArchived + ')">' + (isArchived ? 'Unarchive' : 'Archive') + '</button>' +
-         '</span>' +
-       '</div>' +
-       '<div class="project-plans">' + planCards + '</div>' +
-     '</div>';
-   }).join('');
-}
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-async function preview(id, isPublic, slug) {
-  if (isPublic) {
-    window.open(API + '/p/' + slug, '_blank');
-    return;
-  }
-  try {
-    const res = await fetch(API + '/api/plans/' + id, { headers: headers() });
-    if (!res.ok) throw new Error('Failed to load plan');
-    const plan = await res.json();
-    const modal = document.getElementById('preview-modal');
-    const frame = document.getElementById('preview-frame');
-    modal.classList.add('open');
-    frame.srcdoc = plan.html_content;
-  } catch (e) {
-    toast('Error loading plan');
-  }
-}
-
-function closePreview() {
-  document.getElementById('preview-modal').classList.remove('open');
-  document.getElementById('preview-frame').srcdoc = '';
-}
-
-async function approvePlan(id) {
-  try {
-    const res = await fetch(API + '/api/plans/' + id + '/approve', {
-      method: 'POST',
-      headers: headers()
-    });
-    if (res.ok) {
-      toast('Plan approved!');
-      loadPlans();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      toast(err.detail || 'Approve failed');
+    async function previewPlan(button) {
+      const id = button.dataset.planId;
+      const title = button.dataset.title || 'Plan preview';
+      if (button.dataset.public === 'true') {
+        window.open(API + '/p/' + encodeURIComponent(button.dataset.slug), '_blank', 'noopener,noreferrer');
+        return;
+      }
+      try {
+        const response = await fetch(API + '/api/plans/' + encodeURIComponent(id), { headers: headers() });
+        if (!response.ok) throw new Error('Unable to load preview');
+        const plan = await response.json();
+        $('preview-title').textContent = title;
+        $('preview-frame').srcdoc = plan.html_content;
+        $('preview-modal').showModal();
+      } catch (error) {
+        showToast(error.message || 'Unable to load preview');
+      }
     }
-  } catch (e) {
-    toast('Approve failed');
-  }
-}
 
-async function unapprovePlan(id) {
-  try {
-    const res = await fetch(API + '/api/plans/' + id + '/unapprove', {
-      method: 'POST',
-      headers: headers()
-    });
-    if (res.ok) {
-      toast('Plan unapproved');
-      loadPlans();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      toast(err.detail || 'Unapprove failed');
+    function closePreview() {
+      const dialog = $('preview-modal');
+      if (dialog.open) dialog.close();
+      $('preview-frame').srcdoc = '';
     }
-  } catch (e) {
-    toast('Unapprove failed');
-  }
-}
 
-async function delPlan(id) {
-  if (!confirm('Delete this plan?')) return;
-  try {
-    const res = await fetch(API + '/api/plans/' + id, { method: 'DELETE', headers: headers() });
-    if (res.ok) {
-      toast('Deleted');
-      loadPlans();
-    } else {
-      toast('Delete failed');
+    async function handleAction(button) {
+      const action = button.dataset.action;
+      const id = button.dataset.planId;
+      if (action === 'preview') return previewPlan(button);
+      if (action === 'delete') {
+        if (!window.confirm('Delete this plan permanently?')) return;
+        return requestAction('/api/plans/' + encodeURIComponent(id), { method: 'DELETE' }, 'Plan deleted');
+      }
+      if (action === 'approve') {
+        const plan = allPlans.find((item) => item.id === id);
+        return requestAction('/api/plans/' + encodeURIComponent(id) + (plan && plan.is_approved ? '/unapprove' : '/approve'), { method: 'POST' }, plan && plan.is_approved ? 'Plan moved back to review' : 'Plan approved');
+      }
+      if (action === 'pin-plan') {
+        const plan = allPlans.find((item) => item.id === id);
+        return requestAction('/api/plans/' + encodeURIComponent(id) + '/pin', { method: plan && plan.is_pinned ? 'DELETE' : 'POST' }, plan && plan.is_pinned ? 'Plan unpinned' : 'Plan pinned');
+      }
+      if (action === 'archive-plan') {
+        const plan = allPlans.find((item) => item.id === id);
+        return requestAction('/api/plans/' + encodeURIComponent(id) + (plan && plan.is_archived ? '/unarchive' : '/archive'), { method: 'POST' }, plan && plan.is_archived ? 'Plan restored' : 'Plan archived');
+      }
+      if (action === 'pin-project') {
+        const project = allProjects.find((item) => item.id === button.dataset.projectId);
+        return requestAction('/api/projects/' + encodeURIComponent(button.dataset.projectId) + '/pin', { method: project && project.is_pinned ? 'DELETE' : 'POST' }, project && project.is_pinned ? 'Project unpinned' : 'Project pinned');
+      }
+      if (action === 'archive-project') {
+        const project = allProjects.find((item) => item.id === button.dataset.projectId);
+        return requestAction('/api/projects/' + encodeURIComponent(button.dataset.projectId) + (project && project.is_archived ? '/unarchive' : '/archive'), { method: 'POST' }, project && project.is_archived ? 'Project restored' : 'Project archived');
+      }
     }
-  } catch (e) {
-    toast('Delete failed');
-  }
-}
 
-async function togglePinProject(projectId, currentlyPinned) {
-  try {
-    const res = await fetch(API + '/api/projects/' + projectId + '/pin', {
-      method: currentlyPinned ? 'DELETE' : 'POST',
-      headers: headers()
-    });
-    if (res.ok || res.status === 204) {
-      toast(currentlyPinned ? 'Unpinned' : 'Pinned');
-      loadPlans();
-    } else {
-      toast('Operation failed');
+    async function doLogin(event) {
+      event.preventDefault();
+      const email = $('email-input').value.trim();
+      const password = $('password-input').value;
+      $('login-error').textContent = '';
+      if (!email || !password) return;
+      const submit = $('login-submit');
+      submit.disabled = true;
+      submit.textContent = 'Checking access…';
+      try {
+        let response = await fetch(API + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+        if (!response.ok) {
+          response = await fetch(API + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || 'Unable to sign in');
+        setSession(data, email);
+        await loadPlans();
+      } catch (error) {
+        $('login-error').textContent = error.message || 'Unable to sign in';
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Enter workspace';
+      }
     }
-  } catch (e) {
-    toast('Operation failed');
-  }
-}
 
-async function toggleArchiveProject(projectId, currentlyArchived) {
-  try {
-    const url = currentlyArchived
-      ? API + '/api/projects/' + projectId + '/unarchive'
-      : API + '/api/projects/' + projectId + '/archive';
-    const res = await fetch(url, { method: 'POST', headers: headers() });
-    if (res.ok) {
-      toast(currentlyArchived ? 'Unarchived' : 'Archived');
-      loadPlans();
-    } else {
-      toast('Operation failed');
+    function doLogout(showLogin = true) {
+      localStorage.removeItem('plan_api_key');
+      localStorage.removeItem('plan_email');
+      apiKey = null;
+      userEmail = null;
+      allPlans = [];
+      allProjects = [];
+      if (showLogin) setView('login');
     }
-  } catch (e) {
-    toast('Operation failed');
-  }
-}
 
-async function toggleArchivePlan(planId, currentlyArchived) {
-  try {
-    const url = currentlyArchived
-      ? API + '/api/plans/' + planId + '/unarchive'
-      : API + '/api/plans/' + planId + '/archive';
-    const res = await fetch(url, { method: 'POST', headers: headers() });
-    if (res.ok) {
-      toast(currentlyArchived ? 'Unarchived' : 'Archived');
-      loadPlans();
-    } else {
-      toast('Operation failed');
-    }
-  } catch (e) {
-    toast('Operation failed');
-  }
-}
+    $('login-form').addEventListener('submit', doLogin);
+    $('logout-button').addEventListener('click', () => doLogout(true));
+    $('refresh-button').addEventListener('click', loadPlans);
+    $('retry-button').addEventListener('click', loadPlans);
+    $('preview-close').addEventListener('click', closePreview);
+    $('preview-modal').addEventListener('cancel', closePreview);
+    $('preview-modal').addEventListener('close', () => { $('preview-frame').srcdoc = ''; });
+    $('search-input').addEventListener('input', (event) => { searchTerm = event.target.value.trim().toLowerCase(); renderPlans(); });
+    document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
+      activeFilter = button.dataset.filter;
+      document.querySelectorAll('[data-filter]').forEach((item) => { const active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-pressed', active ? 'true' : 'false'); });
+      renderPlans();
+    }));
+    $('plan-list').addEventListener('click', (event) => { const button = event.target.closest('button[data-action]'); if (button) handleAction(button); });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
-loadPlans();
-</script>
+    if (apiKey) loadPlans(); else setView('login');
+  </script>
 </body>
 </html>
