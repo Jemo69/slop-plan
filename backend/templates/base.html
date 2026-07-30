@@ -1,79 +1,62 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
   <title>{% block title %}HTML Planner{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            bg: {
-              DEFAULT: '#020a08',
-              surface: '#0a1410',
-              raised: '#122018',
-            },
-            ink: {
-              DEFAULT: '#e0faf5',
-              muted: '#7a9e94',
-            },
-            primary: {
-              DEFAULT: '#90ecd6',
-              hover: '#a8f2e0',
-            },
-            secondary: {
-              DEFAULT: '#8e181b',
-              hover: '#a51d20',
-            },
-            accent: {
-              DEFAULT: '#d8dd31',
-            },
-            border: {
-              DEFAULT: '#1a2e26',
-              focus: '#90ecd6',
-            },
-          },
-          fontFamily: {
-            mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
-            sans: ['Inter', 'SF Pro Display', 'system-ui', 'sans-serif'],
-          },
-        },
-      },
-    }
-  </script>
   <style>
+    :root {
+      --ink: #0a0a0a;
+      --paper: #f4f4f1;
+      --surface: #ffffff;
+      --panel: #e8e8e4;
+      --line: #0a0a0a;
+      --muted: #5f5f5a;
+      --quiet: #888882;
+      --accent: #d8ff3e;
+      --warning: #c99100;
+      --danger: #b42318;
+      --radius: 10px;
+      --z-dropdown: 20;
+      --z-sticky: 30;
+      --z-modal-backdrop: 40;
+      --z-modal: 50;
+      --z-toast: 60;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { background: var(--paper); }
     body {
-      font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
-      background-color: #020a08;
-      color: #e0faf5;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Arial", "Helvetica Neue", sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
     }
-    code, pre, .font-mono {
-      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    a { color: inherit; }
+    button, input { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    ::selection { background: var(--accent); color: var(--ink); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--panel); }
+    ::-webkit-scrollbar-thumb { background: var(--ink); border: 3px solid var(--panel); border-radius: 8px; }
+
+    .encase-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      line-height: 1.2;
+      text-transform: uppercase;
     }
-    ::selection {
-      background-color: #90ecd6;
-      color: #020a08;
-    }
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0a1410;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #1a2e26;
-      border-radius: 2px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #7a9e94;
-    }
+    .encase-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
   </style>
 </head>
-<body class="min-h-screen bg-bg antialiased">
+<body>
   {% block body %}{% endblock %}
 </body>
 </html>
