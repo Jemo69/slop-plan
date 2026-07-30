@@ -60,6 +60,7 @@
       <span class="brand-name">HTML Planner</span>
     </a>
     <nav class="home-nav" aria-label="Main navigation">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><span id="theme-toggle-icon" class="theme-toggle-icon" aria-hidden="true">D</span><span id="theme-toggle-label">Dark mode</span></button>
       <a href="/dashboard">Dashboard</a>
       <a class="home-nav-cta" href="/dashboard">Open workspace</a>
     </nav>
@@ -97,4 +98,27 @@
     <span>Built for developers</span>
   </footer>
 </div>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const toggle = document.getElementById('theme-toggle');
+    const icon = document.getElementById('theme-toggle-icon');
+    const label = document.getElementById('theme-toggle-label');
+    const syncThemeToggle = () => {
+      const isDark = root.dataset.theme === 'dark';
+      toggle.setAttribute('aria-pressed', String(isDark));
+      toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+      icon.textContent = isDark ? 'L' : 'D';
+      label.textContent = isDark ? 'Light mode' : 'Dark mode';
+      document.querySelector('meta[name="theme-color"]').content = isDark ? '#11110f' : '#f4f4f1';
+    };
+    toggle.addEventListener('click', () => {
+      const nextTheme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = nextTheme;
+      localStorage.setItem('html_planner_theme', nextTheme);
+      syncThemeToggle();
+    });
+    syncThemeToggle();
+  })();
+</script>
 {% endblock %}

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0a0a">
   <title>Dashboard | HTML Planner</title>
+  <script>
+    (() => {
+      const stored = localStorage.getItem('html_planner_theme');
+      const preferred = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = preferred;
+    })();
+  </script>
   <style>
     :root {
       --ink: #0a0a0a;
@@ -23,6 +30,19 @@
       --z-modal-backdrop: 40;
       --z-modal: 50;
       --z-toast: 60;
+      color-scheme: light;
+    }
+    html[data-theme="dark"] {
+      --ink: #f5f5f0;
+      --paper: #11110f;
+      --surface: #1c1c19;
+      --panel: #262622;
+      --line: #f5f5f0;
+      --muted: #c0c0b8;
+      --quiet: #8e8e87;
+      --warning: #ffd36b;
+      --danger: #ff8c82;
+      color-scheme: dark;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html { background: var(--paper); }
@@ -40,6 +60,9 @@
     .encase-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     [hidden] { display: none !important; }
+    .theme-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border: 2px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+    .theme-toggle:hover { background: var(--panel); }
+    .theme-toggle-icon { font-size: 13px; line-height: 1; }
 
     .auth-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); min-height: 100vh; }
     .auth-hero { display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; padding: clamp(28px, 5vw, 64px); background: var(--ink); color: var(--surface); }
@@ -159,6 +182,24 @@
     .preview-frame { display: block; width: 100%; height: calc(100% - 52px); border: 0; background: var(--surface); }
     .toast { position: fixed; right: 22px; bottom: 22px; z-index: var(--z-toast); max-width: min(360px, calc(100vw - 44px)); padding: 13px 16px; border: 2px solid var(--surface); border-radius: 7px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 800; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease-out, transform .18s ease-out; }
     .toast.show { opacity: 1; transform: translateY(0); }
+    html[data-theme="dark"] .topbar-mark,
+    html[data-theme="dark"] .sidebar-cli,
+    html[data-theme="dark"] .project-header,
+    html[data-theme="dark"] .plan-button-primary,
+    html[data-theme="dark"] .auth-submit,
+    html[data-theme="dark"] .sidebar-link.active,
+    html[data-theme="dark"] .filter-button.active,
+    html[data-theme="dark"] .empty-command,
+    html[data-theme="dark"] .preview-header { background: #0a0a0a; color: #f5f5f0; }
+    html[data-theme="dark"] .project-header { border-color: #f5f5f0; }
+    html[data-theme="dark"] .plan-row:hover { background: #22221f; }
+    html[data-theme="dark"] .plan-row { border-bottom-color: #4a4a44; }
+    html[data-theme="dark"] .error-box { background: #321b18; }
+    html[data-theme="dark"] .plan-button-danger:hover { background: #321b18; }
+    html[data-theme="dark"] .field input::placeholder,
+    html[data-theme="dark"] .search-wrap input::placeholder { color: #b0b0a8; }
+    html[data-theme="dark"] .skeleton-list { background: #4a4a44; }
+    html[data-theme="dark"] .skeleton-line { background: #3a3a35; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
     @media (max-width: 980px) {
       .app-frame { grid-template-columns: 184px minmax(0, 1fr); }
@@ -239,6 +280,7 @@
         <span class="topbar-name">HTML Planner</span>
       </a>
       <div class="topbar-right">
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><span id="theme-toggle-icon" class="theme-toggle-icon" aria-hidden="true">D</span><span id="theme-toggle-label">Dark mode</span></button>
         <span id="user-email" class="topbar-email"></span>
         <button id="logout-button" class="topbar-logout" type="button">Log out</button>
       </div>
@@ -566,6 +608,23 @@
       allProjects = [];
       if (showLogin) setView('login');
     }
+
+    const themeToggle = $('theme-toggle');
+    const syncThemeToggle = () => {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      themeToggle.setAttribute('aria-pressed', String(isDark));
+      themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+      $('theme-toggle-icon').textContent = isDark ? 'L' : 'D';
+      $('theme-toggle-label').textContent = isDark ? 'Light mode' : 'Dark mode';
+      document.querySelector('meta[name="theme-color"]').content = isDark ? '#11110f' : '#f4f4f1';
+    };
+    themeToggle.addEventListener('click', () => {
+      const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = nextTheme;
+      localStorage.setItem('html_planner_theme', nextTheme);
+      syncThemeToggle();
+    });
+    syncThemeToggle();
 
     $('login-form').addEventListener('submit', doLogin);
     $('logout-button').addEventListener('click', () => doLogout(true));
