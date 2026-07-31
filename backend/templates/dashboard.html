@@ -429,7 +429,7 @@
       const publicBadge = plan.is_public ? '<span class="badge badge-public">Published</span>' : '<span class="badge badge-private">Private</span>';
       const reviewBadge = plan.is_approved ? '<span class="badge badge-approved">Approved</span>' : '<span class="badge badge-pending">Needs review</span>';
       const archiveBadge = plan.is_archived ? '<span class="badge badge-archived">Archived</span>' : '';
-      const previewLabel = plan.is_public ? 'Open public' : 'Preview';
+      const previewLabel = 'Open';
       const pinLabel = plan.is_pinned ? 'Unpin' : 'Pin';
       const archiveLabel = plan.is_archived ? 'Unarchive' : 'Archive';
       const approvalLabel = plan.is_approved ? 'Unapprove' : 'Approve';
@@ -519,21 +519,11 @@
     }
 
     async function previewPlan(button) {
-      const id = button.dataset.planId;
-      const title = button.dataset.title || 'Plan preview';
+      const slug = button.dataset.slug;
       if (button.dataset.public === 'true') {
-        window.open(API + '/p/' + encodeURIComponent(button.dataset.slug), '_blank', 'noopener,noreferrer');
-        return;
-      }
-      try {
-        const response = await fetch(API + '/api/plans/' + encodeURIComponent(id), { headers: headers() });
-        if (!response.ok) throw new Error('Unable to load preview');
-        const plan = await response.json();
-        $('preview-title').textContent = title;
-        $('preview-frame').srcdoc = plan.html_content;
-        $('preview-modal').showModal();
-      } catch (error) {
-        showToast(error.message || 'Unable to load preview');
+        window.open(API + '/p/' + encodeURIComponent(slug), '_blank', 'noopener,noreferrer');
+      } else {
+        window.open(API + '/plan/' + encodeURIComponent(slug) + '?token=' + encodeURIComponent(apiKey), '_blank', 'noopener,noreferrer');
       }
     }
 
