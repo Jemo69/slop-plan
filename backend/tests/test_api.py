@@ -430,6 +430,43 @@ async def test_delete_project_isolated_per_user():
 
 
 @pytest.mark.asyncio
+async def test_archive_page():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/archive")
+        assert r.status_code == 200
+        assert "Archive" in r.text
+        assert "PLANNER_ARCHIVE__" in r.text
+
+
+@pytest.mark.asyncio
+async def test_plan_response_has_no_approval_fields():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "noapproval@example.com")
+        rp = await client.post("/api/projects", json={"name": "NoApproval"}, headers=headers)
+        pid = rp.json()["id"]
+        rc = await client.post(
+            "/api/plans",
+            json={"project_id": pid, "title": "P", "html_content": "<p>hi</p>"},
+            headers=headers,
+        )
+        assert rc.status_code == 201
+        body = rc.json()
+        assert "is_approved" not in body
+        assert "approved_by" not in body
+        assert "approved_at" not in body
+
+        rl = await client.get("/api/plans", headers=headers)
+        plan = rl.json()["plans"][0]
+        assert "is_approved" not in plan
+
+
+@pytest.mark.asyncio
 async def test_archived_projects_visible_with_param():
     from httpx import AsyncClient, ASGITransport
     from main import app

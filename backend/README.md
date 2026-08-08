@@ -56,8 +56,6 @@ export TURSO_AUTH_TOKEN="your-auth-token"
 - `DELETE /api/plans/{id}` - Delete plan
 - `POST /api/plans/{id}/publish` - Make plan public
 - `POST /api/plans/{id}/unpublish` - Make plan private
-- `POST /api/plans/{id}/approve` - Approve plan
-- `POST /api/plans/{id}/unapprove` - Unapprove plan
 - `POST /api/plans/{id}/pin` - Pin plan to top of dashboard
 - `DELETE /api/plans/{id}/pin` - Unpin plan
 

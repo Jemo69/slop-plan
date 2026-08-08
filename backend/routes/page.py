@@ -29,7 +29,12 @@ async def favicon():
 
 @router.get("/dashboard", response_class=HTMLResponse, tags=["dashboard"])
 async def dashboard(request: Request):
-    return _require_templates().TemplateResponse(request, "dashboard.html")
+    return _require_templates().TemplateResponse(request, "dashboard.html", {"archived": False})
+
+
+@router.get("/archive", response_class=HTMLResponse, tags=["dashboard"])
+async def dashboard_archive(request: Request):
+    return _require_templates().TemplateResponse(request, "dashboard.html", {"archived": True})
 
 
 NAV_BAR = """<div style="position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:10px 20px;background:#11110f;border-bottom:1px solid #262622;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
