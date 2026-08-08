@@ -1,6 +1,5 @@
 import re
 import uuid
-from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
@@ -46,11 +45,8 @@ class PlanResponse(BaseModel):
     html_content: str
     frontmatter: Optional[dict]
     is_public: bool
-    is_approved: bool
     is_archived: bool = False
     is_pinned: bool = False
-    approved_at: Optional[str]
-    approved_by: Optional[str]
     created_at: str
     updated_at: str
 
@@ -75,11 +71,8 @@ def to_response(p: Plan, is_pinned: bool = False) -> PlanResponse:
         html_content=p.html_content,
         frontmatter=p.frontmatter,
         is_public=p.is_public,
-        is_approved=p.is_approved,
         is_archived=p.is_archived,
         is_pinned=is_pinned,
-        approved_at=p.approved_at.isoformat() if p.approved_at else None,
-        approved_by=p.approved_by,
         created_at=p.created_at.isoformat() if p.created_at else "",
         updated_at=p.updated_at.isoformat() if p.updated_at else "",
     )
@@ -255,50 +248,6 @@ async def unpublish_plan(
         raise HTTPException(status_code=404, detail="Plan not found")
 
     plan.is_public = False
-    await plan.save()
-
-    return to_response(plan)
-
-
-@router.post("/{plan_id}/approve", response_model=PlanResponse)
-async def approve_plan(
-    plan_id: str,
-    user: User = Depends(get_current_user),
-):
-    try:
-        uuid.UUID(plan_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid plan_id format")
-
-    plan = await _get_user_plan(plan_id, user)
-    if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
-
-    plan.is_approved = True
-    plan.approved_at = datetime.utcnow()
-    plan.approved_by = user.email
-    await plan.save()
-
-    return to_response(plan)
-
-
-@router.post("/{plan_id}/unapprove", response_model=PlanResponse)
-async def unapprove_plan(
-    plan_id: str,
-    user: User = Depends(get_current_user),
-):
-    try:
-        uuid.UUID(plan_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid plan_id format")
-
-    plan = await _get_user_plan(plan_id, user)
-    if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
-
-    plan.is_approved = False
-    plan.approved_at = None
-    plan.approved_by = None
     await plan.save()
 
     return to_response(plan)

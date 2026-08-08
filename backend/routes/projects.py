@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from db import User, Project, Plan, PlanPin, ProjectPin
@@ -27,8 +27,14 @@ class ProjectListResponse(BaseModel):
 
 
 @router.get("", response_model=ProjectListResponse)
-async def list_projects(user: User = Depends(get_current_user)):
-    projects = await Project.filter(user_id=user.id, is_archived=False).all()
+async def list_projects(
+    archived: Optional[bool] = Query(None, description="Include archived projects"),
+    user: User = Depends(get_current_user),
+):
+    if archived:
+        projects = await Project.filter(user_id=user.id, is_archived=True).all()
+    else:
+        projects = await Project.filter(user_id=user.id, is_archived=False).all()
 
     pinned_project_ids = set(
         await ProjectPin.filter(user_id=user.id).values_list("project_id", flat=True)
