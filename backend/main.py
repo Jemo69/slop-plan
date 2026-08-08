@@ -32,12 +32,18 @@ STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 
+_db_initialized = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with RegisterTortoise(
-        app,
-        config=TORTOISE_ORM,
-    ):
+    if not _db_initialized:
+        async with RegisterTortoise(
+            app,
+            config=TORTOISE_ORM,
+        ):
+            yield
+    else:
         yield
 
 

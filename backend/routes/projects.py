@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
-from db import User, Project, ProjectPin
+from db import User, Project, Plan, PlanPin, ProjectPin
 from routes.auth import get_current_user
 
 router = APIRouter()
@@ -98,6 +98,9 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    plan_ids = await Plan.filter(project_id=project.id).values_list('id', flat=True)
+    await PlanPin.filter(plan_id__in=list(plan_ids)).delete()
+    await Plan.filter(project_id=project.id).delete()
     await ProjectPin.filter(user_id=user.id, project_id=project.id).delete()
     await project.delete()
 
