@@ -240,6 +240,9 @@
   </style>
 </head>
 <body>
+  <script>
+    window.__HTML_PLANNER_ARCHIVE__ = {{ 'true' if (archived|default(false)) else 'false' }};
+  </script>
   <section id="login-view" class="auth-shell" hidden>
     <div class="auth-hero">
       <a class="auth-brand" href="/" aria-label="HTML Planner home">
@@ -292,8 +295,9 @@
       <aside class="sidebar" aria-label="Workspace navigation">
         <div class="sidebar-section">
           <div class="sidebar-heading encase-label">Workspace</div>
-          <a class="sidebar-link active" href="/dashboard" aria-current="page">Dashboard <span>↗</span></a>
-          <a class="sidebar-link" href="/" >Home <span>↗</span></a>
+          <a id="nav-dashboard" class="sidebar-link" href="/dashboard">Dashboard <span>↗</span></a>
+          <a id="nav-archive" class="sidebar-link" href="/archive">Archive <span>↗</span></a>
+          <a id="nav-home" class="sidebar-link" href="/">Home <span>↗</span></a>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-heading encase-label">Shortcuts</div>
@@ -310,8 +314,8 @@
         <div class="workspace-inner">
           <div class="workspace-heading">
             <div>
-              <div class="workspace-kicker encase-label">Plan inventory / live workspace</div>
-              <h1>Dashboard</h1>
+              <div id="workspace-kicker" class="workspace-kicker encase-label">Plan inventory / live workspace</div>
+              <h1 id="workspace-title">Dashboard</h1>
             </div>
             <button id="refresh-button" class="refresh-button" type="button" aria-busy="false"><span aria-hidden="true">↻</span> Refresh plans</button>
           </div>
@@ -324,7 +328,7 @@
               <span class="sr-only">Search plans</span>
               <input id="search-input" type="search" placeholder="Search plan titles or projects" autocomplete="off">
             </label>
-            <div class="filter-set" role="group" aria-label="Filter plans">
+            <div class="filter-set" role="group" aria-label="Filter plans" id="filter-set">
               <button class="filter-button active" type="button" data-filter="all" aria-pressed="true">All</button>
               <button class="filter-button" type="button" data-filter="published" aria-pressed="false">Published</button>
               <button class="filter-button" type="button" data-filter="archived" aria-pressed="false">Archived projects</button>
@@ -347,17 +351,39 @@
 
   <script>
     const API = window.location.origin;
+    const IS_ARCHIVE = window.__HTML_PLANNER_ARCHIVE__ === true;
     let apiKey = localStorage.getItem('plan_api_key');
     let userEmail = localStorage.getItem('plan_email');
     let allPlans = [];
     let allProjects = [];
-    let activeFilter = 'all';
+    let activeFilter = IS_ARCHIVE ? 'archived' : 'all';
     let searchTerm = '';
     let toastTimer;
 
     const $ = (id) => document.getElementById(id);
     const loginView = $('login-view');
     const appView = $('app-view');
+
+    function applyViewState() {
+      document.title = IS_ARCHIVE ? 'Archive | HTML Planner' : 'Dashboard | HTML Planner';
+      $('workspace-title').textContent = IS_ARCHIVE ? 'Archive' : 'Dashboard';
+      $('workspace-kicker').textContent = IS_ARCHIVE ? 'Plan archive / archived projects' : 'Plan inventory / live workspace';
+      $('nav-dashboard').classList.toggle('active', !IS_ARCHIVE);
+      $('nav-archive').classList.toggle('active', IS_ARCHIVE);
+      if (IS_ARCHIVE) {
+        $('nav-dashboard').removeAttribute('aria-current');
+        $('nav-archive').setAttribute('aria-current', 'page');
+      } else {
+        $('nav-archive').removeAttribute('aria-current');
+        $('nav-dashboard').setAttribute('aria-current', 'page');
+      }
+      document.querySelectorAll('#filter-set [data-filter]').forEach((button) => {
+        button.hidden = IS_ARCHIVE && button.dataset.filter !== 'archived';
+        const active = button.dataset.filter === activeFilter;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
 
     function escapeHtml(value) {
       const node = document.createElement('div');
@@ -401,9 +427,10 @@
     }
 
     function renderStats() {
-      const published = allPlans.filter((plan) => plan.is_public).length;
+      const plans = currentPlans();
+      const published = plans.filter((plan) => plan.is_public).length;
       $('stats').innerHTML = [
-        ['Total plans', allPlans.length],
+        [activeFilter === 'archived' ? 'Archived plans' : 'Total plans', plans.length],
         ['Published', published]
       ].map(([label, value]) => '<div class="stat-cell"><span class="stat-value">' + value + '</span><span class="stat-label encase-label">' + label + '</span></div>').join('');
       $('sidebar-plan-count').textContent = allPlans.length;
@@ -415,9 +442,9 @@
         if (!project) return false;
         const haystack = (plan.title + ' ' + project.name).toLowerCase();
         const matchesSearch = !searchTerm || haystack.includes(searchTerm);
-        const matchesFilter = activeFilter === 'all'
-          || (activeFilter === 'archived' && project.is_archived)
-          || (activeFilter === 'published' && plan.is_public);
+        const matchesFilter = (activeFilter === 'all' && !project.is_archived)
+          || (activeFilter === 'published' && plan.is_public && !project.is_archived)
+          || (activeFilter === 'archived' && project.is_archived);
         return matchesSearch && matchesFilter;
       });
     }
@@ -439,7 +466,8 @@
       const plans = currentPlans();
       if (!plans.length) {
         const hasPlans = allPlans.length > 0;
-        $('plan-list').innerHTML = '<div class="empty-state"><h2>' + (hasPlans ? 'No matching plans' : 'Your workspace is clear') + '</h2><p>' + (hasPlans ? 'Try a different search term or filter.' : 'Create your first plan with the CLI, then return here to review and publish it.') + '</p>' + (hasPlans ? '' : '<code class="empty-command">plan create -p &lt;project-id&gt; -t "My Plan" --html plan.html</code>') + '</div>';
+        const isEmptyArchive = activeFilter === 'archived' && !hasPlans;
+        $('plan-list').innerHTML = '<div class="empty-state"><h2>' + (hasPlans ? 'No matching plans' : (isEmptyArchive ? 'Archive is empty' : 'Your workspace is clear')) + '</h2><p>' + (hasPlans ? 'Try a different search term or filter.' : (isEmptyArchive ? 'Archived projects will appear here once you move them out of the dashboard.' : 'Create your first plan with the CLI, then return here to review and publish it.')) + '</p>' + ((hasPlans || isEmptyArchive) ? '' : '<code class="empty-command">plan create -p &lt;project-id&gt; -t "My Plan" --html plan.html</code>') + '</div>';
         return;
       }
 
@@ -628,6 +656,7 @@
     }));
     $('plan-list').addEventListener('click', (event) => { const button = event.target.closest('button[data-action]'); if (button) handleAction(button); });
 
+    applyViewState();
     if (apiKey) loadPlans(); else setView('login');
   </script>
 </body>
