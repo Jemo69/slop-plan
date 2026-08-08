@@ -39,10 +39,7 @@ class Plan(models.Model):
     html_content = fields.TextField()
     frontmatter = fields.JSONField(null=True)
     is_public = fields.BooleanField(default=False)
-    is_approved = fields.BooleanField(default=False)
     is_archived = fields.BooleanField(default=False)
-    approved_at = fields.DatetimeField(null=True)
-    approved_by = fields.CharField(max_length=255, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

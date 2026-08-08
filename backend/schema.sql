@@ -22,9 +22,7 @@ CREATE TABLE IF NOT EXISTS plans (
     html_content TEXT NOT NULL,
     frontmatter JSON,
     is_public BOOLEAN DEFAULT FALSE,
-    is_approved BOOLEAN DEFAULT FALSE,
-    approved_at TIMESTAMP NULL,
-    approved_by TEXT NULL,
+    is_archived BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id)

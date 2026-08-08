@@ -6,7 +6,6 @@ CLI tool for HTML Plan Service - Create, manage, and share HTML plans.
 
 - Create, update, delete plans
 - Publish/unpublish plans (public URL)
-- Approve/unapprove plans
 - Pin plans via the web dashboard
 
 ## Installation
