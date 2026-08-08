@@ -89,18 +89,14 @@ def list_plans(
         table.add_column("Title", style="green")
         table.add_column("URL", style="blue")
         table.add_column("Public", justify="center")
-        table.add_column("Approved", justify="center")
         table.add_column("Updated", style="dim")
 
         for plan in plans:
-            approved = "✓" if plan.get("is_approved") else "✗"
-            approved_style = "green" if plan.get("is_approved") else "red"
             table.add_row(
                 plan["id"][:8] + "...",
                 plan["title"],
                 plan.get("url", plan.get("slug", "")),
                 "✓" if plan.get("is_public") else "✗",
-                f"[{approved_style}]{approved}[/{approved_style}]",
                 plan.get("updated_at", "")[:10],
             )
 
@@ -133,19 +129,6 @@ def get(
         console.print(f"[bold]Project:[/bold] {plan.get('project_id','')}")
         console.print(f"[bold]URL:[/bold] [link]{plan['url']}[/link]")
         console.print(f"[bold]Public:[/bold] {'Yes' if plan['is_public'] else 'No'}")
-        
-        approved = plan.get('is_approved', False)
-        approved_by = plan.get('approved_by', '')
-        approved_at = plan.get('approved_at', '')
-        if approved:
-            console.print(f"[bold]Approved:[/bold] [green]Yes[/green]")
-            if approved_by:
-                console.print(f"[bold]Approved By:[/bold] {approved_by}")
-            if approved_at:
-                console.print(f"[bold]Approved At:[/bold] {approved_at}")
-        else:
-            console.print(f"[bold]Approved:[/bold] [red]No[/red]")
-        
         console.print(f"[bold]Created:[/bold] {plan['created_at']}")
         console.print(f"[bold]Updated:[/bold] {plan['updated_at']}")
 
@@ -259,38 +242,3 @@ def unpublish(
         console.print(f"[red]Error: {e.detail}[/red]")
         raise typer.Exit(1)
 
-
-@app.command()
-def approve(
-    plan_id: str = typer.Argument(help="Plan ID"),
-):
-    api = PlanAPI()
-
-    try:
-        result = asyncio.run(api.approve_plan(plan_id))
-        console.print("[green]Plan approved![/green]")
-        console.print(f"Approved by: {result.get('approved_by', '')}")
-        console.print(f"Approved at: {result.get('approved_at', '')}")
-    except PlanConnectionError:
-        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
-        raise typer.Exit(1)
-    except PlanAPIError as e:
-        console.print(f"[red]Error: {e.detail}[/red]")
-        raise typer.Exit(1)
-
-
-@app.command()
-def unapprove(
-    plan_id: str = typer.Argument(help="Plan ID"),
-):
-    api = PlanAPI()
-
-    try:
-        result = asyncio.run(api.unapprove_plan(plan_id))
-        console.print("[green]Plan approval removed![/green]")
-    except PlanConnectionError:
-        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
-        raise typer.Exit(1)
-    except PlanAPIError as e:
-        console.print(f"[red]Error: {e.detail}[/red]")
-        raise typer.Exit(1)
