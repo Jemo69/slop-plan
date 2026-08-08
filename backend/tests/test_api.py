@@ -356,3 +356,74 @@ async def test_unarchive_nonexistent_project():
             headers=headers,
         )
         assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_project_cascades_plans():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    from db import Plan
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "del1@example.com")
+
+        rp = await client.post("/api/projects", json={"name": "ToDelete"}, headers=headers)
+        assert rp.status_code == 201
+        pid = rp.json()["id"]
+
+        rc = await client.post(
+            "/api/plans",
+            json={
+                "project_id": pid,
+                "title": "Plan A",
+                "html_content": "<html></html>",
+            },
+            headers=headers,
+        )
+        assert rc.status_code == 201
+        plan_id = rc.json()["id"]
+
+        rd = await client.delete(f"/api/projects/{pid}", headers=headers)
+        assert rd.status_code == 204
+
+        lingering_plan = await Plan.filter(id=plan_id).first()
+        assert lingering_plan is None
+
+        rl = await client.get("/api/projects", headers=headers)
+        assert len(rl.json()["projects"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_project_not_found():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "delbad@example.com")
+        r = await client.delete(
+            "/api/projects/00000000-0000-0000-0000-000000000000",
+            headers=headers,
+        )
+        assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_project_isolated_per_user():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        h1 = await _register_and_get_headers(client, "deluser_a@example.com")
+        h2 = await _register_and_get_headers(client, "deluser_b@example.com")
+
+        rp1 = await client.post("/api/projects", json={"name": "UserAProj"}, headers=h1)
+        pid1 = rp1.json()["id"]
+
+        rp2 = await client.post("/api/projects", json={"name": "UserBProj"}, headers=h2)
+        pid2 = rp2.json()["id"]
+
+        rd = await client.delete(f"/api/projects/{pid1}", headers=h1)
+        assert rd.status_code == 204
+
+        rl2 = await client.get("/api/projects", headers=h2)
+        assert any(p["id"] == pid2 for p in rl2.json()["projects"])
