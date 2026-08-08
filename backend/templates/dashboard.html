@@ -436,22 +436,29 @@
       $('sidebar-plan-count').textContent = allPlans.length;
     }
 
+    function planIsArchived(plan) {
+      if (plan.is_archived) return true;
+      const project = allProjects.find((item) => item.id === plan.project_id);
+      return project ? Boolean(project.is_archived) : false;
+    }
+
     function currentPlans() {
       return allPlans.filter((plan) => {
         const project = allProjects.find((item) => item.id === plan.project_id);
         if (!project) return false;
+        const hasArchived = plan.is_archived || project.is_archived;
         const haystack = (plan.title + ' ' + project.name).toLowerCase();
         const matchesSearch = !searchTerm || haystack.includes(searchTerm);
-        const matchesFilter = (activeFilter === 'all' && !project.is_archived)
-          || (activeFilter === 'published' && plan.is_public && !project.is_archived)
-          || (activeFilter === 'archived' && project.is_archived);
+        const matchesFilter = (activeFilter === 'all' && !hasArchived)
+          || (activeFilter === 'published' && plan.is_public && !hasArchived)
+          || (activeFilter === 'archived' && hasArchived);
         return matchesSearch && matchesFilter;
       });
     }
 
     function renderPlan(plan) {
       const publicBadge = plan.is_public ? '<span class="badge badge-public">Published</span>' : '<span class="badge badge-private">Private</span>';
-      const archiveBadge = plan.is_archived ? '<span class="badge badge-archived">Archived</span>' : '';
+      const archiveBadge = planIsArchived(plan) ? '<span class="badge badge-archived">Archived</span>' : '';
       const previewLabel = 'Open';
       const pinLabel = plan.is_pinned ? 'Unpin' : 'Pin';
       const archiveLabel = plan.is_archived ? 'Unarchive' : 'Archive';
@@ -496,12 +503,12 @@
       $('status-line').textContent = 'Syncing workspace…';
       renderSkeleton();
       try {
-        const projectsUrl = activeFilter === 'archived' ? '/api/projects?archived=true' : '/api/projects';
-        const [plansResponse, projectsResponse] = await Promise.all([
+        const [plansResponse, projectsResponse, archivedResponse] = await Promise.all([
           fetch(API + '/api/plans', { headers: headers() }),
-          fetch(API + projectsUrl, { headers: headers() })
+          fetch(API + '/api/projects', { headers: headers() }),
+          fetch(API + '/api/projects?archived=true', { headers: headers() })
         ]);
-        if (plansResponse.status === 401 || projectsResponse.status === 401) {
+        if (plansResponse.status === 401 || projectsResponse.status === 401 || archivedResponse.status === 401) {
           doLogout(true);
           return;
         }
@@ -511,8 +518,9 @@
         }
         const plansData = await plansResponse.json();
         const projectsData = projectsResponse.ok ? await projectsResponse.json() : { projects: [] };
+        const archivedData = archivedResponse.ok ? await archivedResponse.json() : { projects: [] };
         allPlans = plansData.plans || [];
-        allProjects = projectsData.projects || [];
+        allProjects = (projectsData.projects || []).concat(archivedData.projects || []);
         $('error-box').hidden = true;
         renderStats();
         renderPlans();
