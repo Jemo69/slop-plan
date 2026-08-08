@@ -427,3 +427,29 @@ async def test_delete_project_isolated_per_user():
 
         rl2 = await client.get("/api/projects", headers=h2)
         assert any(p["id"] == pid2 for p in rl2.json()["projects"])
+
+
+@pytest.mark.asyncio
+async def test_archived_projects_visible_with_param():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "archview1@example.com")
+
+        rp = await client.post("/api/projects", json={"name": "ActiveProj"}, headers=headers)
+        rp2 = await client.post("/api/projects", json={"name": "ArchivedProj"}, headers=headers)
+        pid2 = rp2.json()["id"]
+
+        await client.post(f"/api/projects/{pid2}/archive", headers=headers)
+
+        rl = await client.get("/api/projects", headers=headers)
+        assert rl.status_code == 200
+        assert all(not p["is_archived"] for p in rl.json()["projects"])
+
+        rl_arch = await client.get("/api/projects?archived=true", headers=headers)
+        assert rl_arch.status_code == 200
+        archived = rl_arch.json()["projects"]
+        assert len(archived) == 1
+        assert archived[0]["id"] == pid2
+        assert archived[0]["is_archived"] is True

@@ -155,9 +155,8 @@
     .plan-status { display: flex; flex-wrap: wrap; gap: 6px; }
     .badge { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
     .badge::before { content: ""; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--quiet); }
-    .badge-approved::before, .badge-public::before { background: var(--accent); }
-    .badge-pending::before { background: var(--warning); }
-    .badge-private::before { background: var(--ink); }
+    .badge-public::before { background: var(--accent); }
+        .badge-private::before { background: var(--ink); }
     .badge-archived { color: var(--muted); }
     .plan-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
     .plan-button { min-height: 30px; padding: 0 9px; border: 2px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
@@ -327,9 +326,8 @@
             </label>
             <div class="filter-set" role="group" aria-label="Filter plans">
               <button class="filter-button active" type="button" data-filter="all" aria-pressed="true">All</button>
-              <button class="filter-button" type="button" data-filter="review" aria-pressed="false">Needs review</button>
-              <button class="filter-button" type="button" data-filter="approved" aria-pressed="false">Approved</button>
-              <button class="filter-button" type="button" data-filter="public" aria-pressed="false">Published</button>
+              <button class="filter-button" type="button" data-filter="published" aria-pressed="false">Published</button>
+              <button class="filter-button" type="button" data-filter="archived" aria-pressed="false">Archived projects</button>
             </div>
           </div>
           <div id="plan-list" aria-live="polite"></div>
@@ -403,13 +401,9 @@
     }
 
     function renderStats() {
-      const approved = allPlans.filter((plan) => plan.is_approved).length;
       const published = allPlans.filter((plan) => plan.is_public).length;
-      const review = allPlans.filter((plan) => !plan.is_approved).length;
       $('stats').innerHTML = [
         ['Total plans', allPlans.length],
-        ['Needs review', review],
-        ['Approved', approved],
         ['Published', published]
       ].map(([label, value]) => '<div class="stat-cell"><span class="stat-value">' + value + '</span><span class="stat-label encase-label">' + label + '</span></div>').join('');
       $('sidebar-plan-count').textContent = allPlans.length;
@@ -418,28 +412,26 @@
     function currentPlans() {
       return allPlans.filter((plan) => {
         const project = allProjects.find((item) => item.id === plan.project_id);
-        const haystack = (plan.title + ' ' + (project ? project.name : '')).toLowerCase();
+        if (!project) return false;
+        const haystack = (plan.title + ' ' + project.name).toLowerCase();
         const matchesSearch = !searchTerm || haystack.includes(searchTerm);
         const matchesFilter = activeFilter === 'all'
-          || (activeFilter === 'review' && !plan.is_approved)
-          || (activeFilter === 'approved' && plan.is_approved)
-          || (activeFilter === 'public' && plan.is_public);
+          || (activeFilter === 'archived' && project.is_archived)
+          || (activeFilter === 'published' && plan.is_public);
         return matchesSearch && matchesFilter;
       });
     }
 
     function renderPlan(plan) {
       const publicBadge = plan.is_public ? '<span class="badge badge-public">Published</span>' : '<span class="badge badge-private">Private</span>';
-      const reviewBadge = plan.is_approved ? '<span class="badge badge-approved">Approved</span>' : '<span class="badge badge-pending">Needs review</span>';
       const archiveBadge = plan.is_archived ? '<span class="badge badge-archived">Archived</span>' : '';
       const previewLabel = 'Open';
       const pinLabel = plan.is_pinned ? 'Unpin' : 'Pin';
       const archiveLabel = plan.is_archived ? 'Unarchive' : 'Archive';
-      const approvalLabel = plan.is_approved ? 'Unapprove' : 'Approve';
       return '<article class="plan-row" data-plan-id="' + escapeHtml(plan.id) + '">' +
-        '<div class="plan-main"><div class="plan-title-line">' + (plan.is_pinned ? '<span class="plan-pin" title="Pinned plan" aria-label="Pinned">●</span>' : '') + '<span class="plan-title">' + escapeHtml(plan.title) + '</span></div><div class="plan-meta"><code>' + escapeHtml(plan.id.slice(0, 8)) + '</code><span>Updated ' + escapeHtml(formatDate(plan.updated_at)) + '</span>' + (plan.approved_by ? '<span>Approved by ' + escapeHtml(plan.approved_by) + '</span>' : '') + '</div></div>' +
-        '<div class="plan-status">' + publicBadge + reviewBadge + archiveBadge + '</div>' +
-        '<div class="plan-actions"><button class="plan-button plan-button-primary" type="button" data-action="preview" data-plan-id="' + escapeHtml(plan.id) + '" data-public="' + plan.is_public + '" data-slug="' + escapeHtml(plan.slug) + '" data-title="' + escapeHtml(plan.title) + '">' + previewLabel + '</button><button class="plan-button" type="button" data-action="approve" data-plan-id="' + escapeHtml(plan.id) + '">' + approvalLabel + '</button><button class="plan-button" type="button" data-action="pin-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + pinLabel + '</button><button class="plan-button" type="button" data-action="archive-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + archiveLabel + '</button><button class="plan-button plan-button-danger" type="button" data-action="delete" data-plan-id="' + escapeHtml(plan.id) + '">Delete</button></div>' +
+        '<div class="plan-main"><div class="plan-title-line">' + (plan.is_pinned ? '<span class="plan-pin" title="Pinned plan" aria-label="Pinned">●</span>' : '') + '<span class="plan-title">' + escapeHtml(plan.title) + '</span></div><div class="plan-meta"><code>' + escapeHtml(plan.id.slice(0, 8)) + '</code><span>Updated ' + escapeHtml(formatDate(plan.updated_at)) + '</span></div></div>' +
+        '<div class="plan-status">' + publicBadge + archiveBadge + '</div>' +
+        '<div class="plan-actions"><button class="plan-button plan-button-primary" type="button" data-action="preview" data-plan-id="' + escapeHtml(plan.id) + '" data-public="' + plan.is_public + '" data-slug="' + escapeHtml(plan.slug) + '" data-title="' + escapeHtml(plan.title) + '">' + previewLabel + '</button><button class="plan-button" type="button" data-action="pin-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + pinLabel + '</button><button class="plan-button" type="button" data-action="archive-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + archiveLabel + '</button><button class="plan-button plan-button-danger" type="button" data-action="delete" data-plan-id="' + escapeHtml(plan.id) + '">Delete</button></div>' +
       '</article>';
     }
 
@@ -476,9 +468,10 @@
       $('status-line').textContent = 'Syncing workspace…';
       renderSkeleton();
       try {
+        const projectsUrl = activeFilter === 'archived' ? '/api/projects?archived=true' : '/api/projects';
         const [plansResponse, projectsResponse] = await Promise.all([
           fetch(API + '/api/plans', { headers: headers() }),
-          fetch(API + '/api/projects', { headers: headers() })
+          fetch(API + projectsUrl, { headers: headers() })
         ]);
         if (plansResponse.status === 401 || projectsResponse.status === 401) {
           doLogout(true);
@@ -543,10 +536,6 @@
       if (action === 'delete') {
         if (!window.confirm('Delete this plan permanently?')) return;
         return requestAction('/api/plans/' + encodeURIComponent(id), { method: 'DELETE' }, 'Plan deleted');
-      }
-      if (action === 'approve') {
-        const plan = allPlans.find((item) => item.id === id);
-        return requestAction('/api/plans/' + encodeURIComponent(id) + (plan && plan.is_approved ? '/unapprove' : '/approve'), { method: 'POST' }, plan && plan.is_approved ? 'Plan moved back to review' : 'Plan approved');
       }
       if (action === 'pin-plan') {
         const plan = allPlans.find((item) => item.id === id);
