@@ -140,6 +140,8 @@
     .project-actions { display: flex; gap: 6px; margin-left: auto; }
     .project-action { min-height: 27px; padding: 0 8px; border: 1px solid #bcbcb7; border-radius: 5px; background: transparent; color: var(--surface); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
     .project-action:hover, .project-action.active { border-color: var(--accent); color: var(--accent); }
+    .project-action-danger { color: var(--danger); border-color: var(--danger); }
+    .project-action-danger:hover { background: #fff5f4; }
     .plan-list { border: 2px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); background: var(--surface); overflow: hidden; }
     .plan-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(180px, .8fr) auto; align-items: center; gap: 20px; padding: 16px 18px; border-bottom: 1px solid #c9c9c4; }
     .plan-row:last-child { border-bottom: 0; }
@@ -196,6 +198,7 @@
     html[data-theme="dark"] .plan-row { border-bottom-color: #4a4a44; }
     html[data-theme="dark"] .error-box { background: #321b18; }
     html[data-theme="dark"] .plan-button-danger:hover { background: #321b18; }
+    html[data-theme="dark"] .project-action-danger:hover { background: #321b18; }
     html[data-theme="dark"] .field input::placeholder,
     html[data-theme="dark"] .search-wrap input::placeholder { color: #b0b0a8; }
     html[data-theme="dark"] .skeleton-list { background: #4a4a44; }
@@ -461,7 +464,7 @@
         const projectName = project ? project.name : 'Unknown project';
         const isPinned = project ? Boolean(project.is_pinned) : false;
         const isArchived = project ? Boolean(project.is_archived) : false;
-        return '<section class="project-group" aria-labelledby="project-' + escapeHtml(projectId) + '"><div class="project-header"><span id="project-' + escapeHtml(projectId) + '" class="project-name">' + escapeHtml(projectName) + '</span><span class="project-count">' + projectPlans.length + ' plan' + (projectPlans.length === 1 ? '' : 's') + '</span><div class="project-actions"><button class="project-action ' + (isPinned ? 'active' : '') + '" type="button" data-action="pin-project" data-project-id="' + escapeHtml(projectId) + '" data-pinned="' + isPinned + '">' + (isPinned ? 'Unpin project' : 'Pin project') + '</button><button class="project-action" type="button" data-action="archive-project" data-project-id="' + escapeHtml(projectId) + '" data-archived="' + isArchived + '">' + (isArchived ? 'Unarchive project' : 'Archive project') + '</button></div></div><div class="plan-list">' + projectPlans.map(renderPlan).join('') + '</div></section>';
+        return '<section class="project-group" aria-labelledby="project-' + escapeHtml(projectId) + '"><div class="project-header"><span id="project-' + escapeHtml(projectId) + '" class="project-name">' + escapeHtml(projectName) + '</span><span class="project-count">' + projectPlans.length + ' plan' + (projectPlans.length === 1 ? '' : 's') + '</span><div class="project-actions"><button class="project-action ' + (isPinned ? 'active' : '') + '" type="button" data-action="pin-project" data-project-id="' + escapeHtml(projectId) + '" data-pinned="' + isPinned + '">' + (isPinned ? 'Unpin project' : 'Pin project') + '</button><button class="project-action" type="button" data-action="archive-project" data-project-id="' + escapeHtml(projectId) + '" data-archived="' + isArchived + '">' + (isArchived ? 'Unarchive project' : 'Archive project') + '</button><button class="project-action project-action-danger" type="button" data-action="delete-project" data-project-id="' + escapeHtml(projectId) + '" data-project-name="' + escapeHtml(projectName) + '">Delete project</button></div></div><div class="plan-list">' + projectPlans.map(renderPlan).join('') + '</div></section>';
       }).join('');
     }
 
@@ -560,6 +563,11 @@
       if (action === 'archive-project') {
         const project = allProjects.find((item) => item.id === button.dataset.projectId);
         return requestAction('/api/projects/' + encodeURIComponent(button.dataset.projectId) + (project && project.is_archived ? '/unarchive' : '/archive'), { method: 'POST' }, project && project.is_archived ? 'Project restored' : 'Project archived');
+      }
+      if (action === 'delete-project') {
+        const projectName = button.dataset.projectName;
+        if (!window.confirm('Delete project "' + projectName + '" and all its plans? This cannot be undone.')) return;
+        return requestAction('/api/projects/' + encodeURIComponent(button.dataset.projectId), { method: 'DELETE' }, 'Project deleted');
       }
     }
 
