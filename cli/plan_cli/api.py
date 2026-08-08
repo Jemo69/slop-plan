@@ -249,34 +249,6 @@ class PlanAPI:
         except httpx.ConnectError:
             raise PlanConnectionError(self.base_url)
 
-    async def approve_plan(self, plan_id: str) -> dict:
-        self._check_auth()
-        try:
-            async with self._client() as client:
-                response = await client.post(
-                    f"{self.base_url}/api/plans/{plan_id}/approve",
-                    headers=self._headers(),
-                )
-                if response.status_code != 200:
-                    raise PlanAPIError(response.status_code, _get_error_detail(response))
-                return response.json()
-        except httpx.ConnectError:
-            raise PlanConnectionError(self.base_url)
-
-    async def unapprove_plan(self, plan_id: str) -> dict:
-        self._check_auth()
-        try:
-            async with self._client() as client:
-                response = await client.post(
-                    f"{self.base_url}/api/plans/{plan_id}/unapprove",
-                    headers=self._headers(),
-                )
-                if response.status_code != 200:
-                    raise PlanAPIError(response.status_code, _get_error_detail(response))
-                return response.json()
-        except httpx.ConnectError:
-            raise PlanConnectionError(self.base_url)
-
     async def archive_project(self, project_id: str) -> dict:
         self._check_auth()
         try:
