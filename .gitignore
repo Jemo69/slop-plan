@@ -1,3 +1,4 @@
 backend/.env
 .workspace/
 __pycache__/
+.vercel

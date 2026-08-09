@@ -3,10 +3,12 @@ from fastapi.exceptions import HTTPException
 from fastapi import Request, Query
 from fastapi.templating import Jinja2Templates
 from fastapi import APIRouter, Response
+from pathlib import Path
 
 from db import Plan, User
 
-templates: Jinja2Templates | None = Jinja2Templates(directory="templates")
+_TEMPLATES_DIR = str(Path(__file__).resolve().parent.parent / "templates")
+templates: Jinja2Templates | None = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 router = APIRouter()
 
