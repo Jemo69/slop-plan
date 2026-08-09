@@ -16,6 +16,8 @@ backend/.vercelignore
 cli/
 *.md
 *.html
+!backend/templates/*.html
+!backend/static/**/*.html
 test_*
 update-cli.sh
 start-backend.sh
