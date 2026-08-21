@@ -442,6 +442,39 @@ async def test_archive_page():
 
 
 @pytest.mark.asyncio
+async def test_archive_and_unarchive_plan():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "planarchive@example.com")
+        project = await client.post("/api/projects", json={"name": "Plan archive"}, headers=headers)
+        project_id = project.json()["id"]
+        created = await client.post(
+            "/api/plans",
+            json={
+                "project_id": project_id,
+                "title": "Restorable plan",
+                "html_content": "<p>restorable</p>",
+                "is_public": True,
+            },
+            headers=headers,
+        )
+        plan = created.json()
+        plan_id = plan["id"]
+
+        archived = await client.post(f"/api/plans/{plan_id}/archive", headers=headers)
+        assert archived.status_code == 200
+        assert archived.json()["is_archived"] is True
+        assert (await client.get(f"/p/{plan['slug']}")).status_code == 404
+
+        restored = await client.post(f"/api/plans/{plan_id}/unarchive", headers=headers)
+        assert restored.status_code == 200
+        assert restored.json()["is_archived"] is False
+        assert (await client.get(f"/p/{plan['slug']}")).status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_plan_response_has_no_approval_fields():
     from httpx import AsyncClient, ASGITransport
     from main import app

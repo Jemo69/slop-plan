@@ -232,6 +232,36 @@ def unpublish(plan_id: str = typer.Argument(help="Plan ID")):
 
 
 @app.command()
+def archive(plan_id: str = typer.Argument(help="Plan ID")):
+    """Archive a plan (top-level alias)."""
+    api = PlanAPI()
+    try:
+        asyncio.run(api.archive_plan(plan_id))
+        console.print("[green]Archived[/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def unarchive(plan_id: str = typer.Argument(help="Plan ID")):
+    """Unarchive a plan (top-level alias)."""
+    api = PlanAPI()
+    try:
+        asyncio.run(api.unarchive_plan(plan_id))
+        console.print("[green]Unarchived[/green]")
+    except PlanConnectionError:
+        console.print(f"[red]Cannot connect to {api.base_url}. Is the server running?[/red]")
+        raise typer.Exit(1)
+    except PlanAPIError as e:
+        console.print(f"[red]Error: {e.detail}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def init(
     email: str = typer.Option(None, "--email", "-e", help="Your email"),
     api_url: str = typer.Option(None, "--api-url", help="API URL"),

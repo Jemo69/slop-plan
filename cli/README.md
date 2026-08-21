@@ -73,6 +73,12 @@ plan plans publish <plan-id>
 
 # Unpublish a plan (make private)
 plan plans unpublish <plan-id>
+
+# Archive a plan
+plan plans archive <plan-id>
+
+# Restore an archived plan
+plan plans unarchive <plan-id>
 ```
 
 ## Configuration
