@@ -461,7 +461,7 @@
       const archiveBadge = planIsArchived(plan) ? '<span class="badge badge-archived">Archived</span>' : '';
       const previewLabel = 'Open';
       const pinLabel = plan.is_pinned ? 'Unpin' : 'Pin';
-      const archiveLabel = plan.is_archived ? 'Unarchive' : 'Archive';
+      const archiveLabel = planIsArchived(plan) ? 'Unarchive' : 'Archive';
       return '<article class="plan-row" data-plan-id="' + escapeHtml(plan.id) + '">' +
         '<div class="plan-main"><div class="plan-title-line">' + (plan.is_pinned ? '<span class="plan-pin" title="Pinned plan" aria-label="Pinned">●</span>' : '') + '<span class="plan-title">' + escapeHtml(plan.title) + '</span></div><div class="plan-meta"><code>' + escapeHtml(plan.id.slice(0, 8)) + '</code><span>Updated ' + escapeHtml(formatDate(plan.updated_at)) + '</span></div></div>' +
         '<div class="plan-status">' + publicBadge + archiveBadge + '</div>' +
@@ -579,7 +579,8 @@
       }
       if (action === 'archive-plan') {
         const plan = allPlans.find((item) => item.id === id);
-        return requestAction('/api/plans/' + encodeURIComponent(id) + (plan && plan.is_archived ? '/unarchive' : '/archive'), { method: 'POST' }, plan && plan.is_archived ? 'Plan restored' : 'Plan archived');
+        const archived = plan && planIsArchived(plan);
+        return requestAction('/api/plans/' + encodeURIComponent(id) + (archived ? '/unarchive' : '/archive'), { method: 'POST' }, archived ? 'Plan restored' : 'Plan archived');
       }
       if (action === 'pin-project') {
         const project = allProjects.find((item) => item.id === button.dataset.projectId);
