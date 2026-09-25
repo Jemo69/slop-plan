@@ -1,10 +1,12 @@
+import difflib
 import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
-from db import User, Project, Plan, PlanPin
+from db import User, Project, Plan, PlanPin, PlanVersion
 from routes.auth import get_current_user
+from services import versioning
 
 router = APIRouter()
 
@@ -182,6 +184,20 @@ async def update_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
+    # Snapshot the pre-update content before mutating it. Only the fields a
+    # version actually stores count: toggling publish/archive is state, not
+    # content, so it should not litter the history.
+    content_changing = any(
+        field is not None and getattr(plan, field) != value
+        for field, value in (
+            ("title", request.title),
+            ("html_content", request.html_content),
+            ("frontmatter", request.frontmatter),
+        )
+    )
+    if content_changing:
+        await versioning.record_version(plan)
+
     if request.title is not None:
         plan.title = request.title
     if request.html_content is not None:
@@ -330,11 +346,46 @@ async def unarchive_plan(
     return to_response(plan)
 
 
-@router.delete("/{plan_id}", status_code=204)
-async def delete_plan(
+class VersionMeta(BaseModel):
+    """History entry without the (potentially large) HTML body."""
+
+    version: int
+    title: str
+    note: Optional[str] = None
+    created_at: str
+    size_bytes: int
+
+
+class VersionListResponse(BaseModel):
+    versions: List[VersionMeta]
+    versioning_available: bool = True
+
+
+class VersionDetail(VersionMeta):
+    html_content: str
+    frontmatter: Optional[dict] = None
+
+
+class SnapshotRequest(BaseModel):
+    note: Optional[str] = None
+
+
+def _version_meta(v: PlanVersion) -> VersionMeta:
+    return VersionMeta(
+        version=v.version,
+        title=v.title,
+        note=v.note,
+        created_at=v.created_at.isoformat() if v.created_at else "",
+        size_bytes=len(v.html_content or ""),
+    )
+
+
+@router.get("/{plan_id}/versions", response_model=VersionListResponse)
+async def list_versions(
     plan_id: str,
     user: User = Depends(get_current_user),
 ):
+    """Version history for a plan, newest first."""
     try:
         uuid.UUID(plan_id)
     except ValueError:
@@ -344,4 +395,159 @@ async def delete_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
 
-    await plan.delete()
+    try:
+        versions = (
+            await PlanVersion.filter(plan_id=plan.id).order_by("-version").all()
+        )
+    except Exception:  # noqa: BLE001
+        # Degrade to empty history rather than failing the request, so a
+        # deployment without the table stays usable.
+        return VersionListResponse(versions=[], versioning_available=False)
+
+    return VersionListResponse(versions=[_version_meta(v) for v in versions])
+
+
+@router.get("/{plan_id}/versions/{version}", response_model=VersionDetail)
+async def get_version(
+    plan_id: str,
+    version: int,
+    user: User = Depends(get_current_user),
+):
+    """Full content of one stored version."""
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    try:
+        stored = await PlanVersion.filter(plan_id=plan.id, version=version).first()
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    if not stored:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    return VersionDetail(
+        **_version_meta(stored).model_dump(),
+        html_content=stored.html_content,
+        frontmatter=stored.frontmatter,
+    )
+
+
+@router.post("/{plan_id}/versions", response_model=VersionDetail, status_code=201)
+async def create_snapshot(
+    plan_id: str,
+    request: SnapshotRequest = SnapshotRequest(),
+    user: User = Depends(get_current_user),
+):
+    """Manually snapshot the plan's current content, with an optional note."""
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    number = await versioning.record_version(plan, note=request.note)
+    if number is None:
+        raise HTTPException(status_code=503, detail="Version history is unavailable")
+
+    stored = await PlanVersion.filter(plan_id=plan.id, version=number).first()
+    return VersionDetail(
+        **_version_meta(stored).model_dump(),
+        html_content=stored.html_content,
+        frontmatter=stored.frontmatter,
+    )
+
+
+@router.post("/{plan_id}/versions/{version}/restore", response_model=PlanResponse)
+async def restore_version(
+    plan_id: str,
+    version: int,
+    user: User = Depends(get_current_user),
+):
+    """Roll a plan back to a previous version.
+
+    The current content is snapshotted first, so a restore is itself
+    reversible through this same endpoint.
+    """
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    ok = await versioning.restore_version(plan, version)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    return to_response(plan)
+
+
+@router.get("/{plan_id}/diff", response_model=dict)
+async def diff_versions(
+    plan_id: str,
+    from_version: Optional[int] = Query(None, alias="from"),
+    to_version: Optional[int] = Query(None, alias="to"),
+    context: int = Query(3, ge=0, le=20),
+    user: User = Depends(get_current_user),
+):
+    """Unified diff of two versions, or of a version against the live plan.
+
+    Standard library only, so the deploy footprint is unchanged.
+    """
+    try:
+        uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_id format")
+
+    plan = await _get_user_plan(plan_id, user)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    async def _resolve(number: Optional[int]) -> str:
+        if number is None:
+            return plan.html_content or ""
+        stored = await PlanVersion.filter(plan_id=plan.id, version=number).first()
+        if not stored:
+            raise HTTPException(status_code=404, detail=f"Version {number} not found")
+        return stored.html_content or ""
+
+    before = await _resolve(from_version)
+    after = await _resolve(to_version)
+
+    diff_lines = list(
+        difflib.unified_diff(
+            before.splitlines(),
+            after.splitlines(),
+            fromfile=f"v{from_version}" if from_version else "current",
+            tofile=f"v{to_version}" if to_version else "current",
+            lineterm="",
+            n=context,
+        )
+    )
+
+    added = sum(
+        1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
+    )
+    removed = sum(
+        1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+    )
+
+    return {
+        "from_version": from_version,
+        "to_version": to_version,
+        "added": added,
+        "removed": removed,
+        "changed": bool(diff_lines),
+        "diff": "\n".join(diff_lines),
+    }

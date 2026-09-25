@@ -291,6 +291,85 @@ class PlanAPI:
         except httpx.ConnectError:
             raise PlanConnectionError(self.base_url)
 
+    async def list_versions(self, plan_id: str) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.get(
+                    f"{self.base_url}/api/plans/{plan_id}/versions",
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
+    async def get_version(self, plan_id: str, version: int) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.get(
+                    f"{self.base_url}/api/plans/{plan_id}/versions/{version}",
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
+    async def create_snapshot(self, plan_id: str, note: str = None) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.base_url}/api/plans/{plan_id}/versions",
+                    json={"note": note} if note else {},
+                    headers=self._headers(),
+                )
+                if response.status_code != 201:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
+    async def restore_version(self, plan_id: str, version: int) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.base_url}/api/plans/{plan_id}/versions/{version}/restore",
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
+    async def diff_versions(
+        self, plan_id: str, from_version: int = None, to_version: int = None
+    ) -> dict:
+        self._check_auth()
+        try:
+            async with self._client() as client:
+                params = {}
+                if from_version is not None:
+                    params["from"] = from_version
+                if to_version is not None:
+                    params["to"] = to_version
+                response = await client.get(
+                    f"{self.base_url}/api/plans/{plan_id}/diff",
+                    params=params,
+                    headers=self._headers(),
+                )
+                if response.status_code != 200:
+                    raise PlanAPIError(response.status_code, _get_error_detail(response))
+                return response.json()
+        except httpx.ConnectError:
+            raise PlanConnectionError(self.base_url)
+
     async def unarchive_project(self, project_id: str) -> dict:
         self._check_auth()
         try:

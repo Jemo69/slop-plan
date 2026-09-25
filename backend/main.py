@@ -25,6 +25,7 @@ from routes.auth import router as auth_router
 from routes.projects import router as projects_router
 from routes.plans import router as plans_router
 from routes.page import router as page_router
+from services import versioning
 
 
 # Absolute paths so templates/static resolve correctly on Vercel (cwd may differ).
@@ -43,6 +44,10 @@ async def lifespan(app: FastAPI):
             app,
             config=TORTOISE_ORM,
         ):
+            # Vercel never runs migrations for this service, so bring the
+            # version table up to date here. Idempotent and fail-soft: a
+            # problem here must never take down a cold start.
+            await versioning.ensure_version_schema()
             yield
     else:
         yield

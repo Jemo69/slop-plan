@@ -182,6 +182,27 @@
     .preview-close:hover { background: var(--surface); color: var(--ink); }
     .preview-frame { display: block; width: 100%; height: calc(100% - 52px); border: 0; background: var(--surface); }
     .toast { position: fixed; right: 22px; bottom: 22px; z-index: var(--z-toast); max-width: min(360px, calc(100vw - 44px)); padding: 13px 16px; border: 2px solid var(--surface); border-radius: 7px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 800; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease-out, transform .18s ease-out; }
+    dialog.history-dialog { width: min(720px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 48px)); padding: 0; border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+    dialog.history-dialog::backdrop { background: rgba(10, 10, 10, .78); }
+    .history-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 2px solid var(--line); }
+    .history-title { font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .history-body { padding: 6px 0; overflow-y: auto; max-height: min(620px, calc(100vh - 160px)); }
+    .history-item { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--line); }
+    .history-item:last-child { border-bottom: 0; }
+    .history-num { flex: 0 0 auto; min-width: 42px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 700; }
+    .history-info { flex: 1 1 auto; min-width: 0; }
+    .history-note { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .history-actions { flex: 0 0 auto; display: flex; gap: 8px; }
+    .history-empty { padding: 40px 18px; text-align: center; color: var(--muted); font-size: 13px; }
+    .history-note-banner { padding: 11px 18px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+    .diff-view { padding: 10px 0 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.55; overflow-x: auto; }
+    .diff-line { padding: 1px 18px; white-space: pre; }
+    .diff-add { background: rgba(22, 163, 74, .16); color: var(--ink); }
+    .diff-del { background: rgba(220, 38, 38, .16); color: var(--ink); }
+    .diff-meta { color: var(--muted); font-weight: 700; }
+    .diff-hunk { color: var(--muted); }
+    .diff-ctx { color: var(--muted); }
     .toast.show { opacity: 1; transform: translateY(0); }
     html[data-theme="dark"] .topbar-mark,
     html[data-theme="dark"] .sidebar-cli,
@@ -347,6 +368,14 @@
     </div>
     <iframe id="preview-frame" class="preview-frame" title="HTML plan preview"></iframe>
   </dialog>
+  <dialog id="history-modal" class="history-dialog" aria-labelledby="history-title">
+    <div class="history-header">
+      <div id="history-title" class="history-title">Version history</div>
+      <button id="history-close" class="preview-close" type="button" aria-label="Close version history">×</button>
+    </div>
+    <div class="history-note-banner">Every update stores the previous content. Restoring is reversible.</div>
+    <div id="history-body" class="history-body"></div>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -465,7 +494,7 @@
       return '<article class="plan-row" data-plan-id="' + escapeHtml(plan.id) + '">' +
         '<div class="plan-main"><div class="plan-title-line">' + (plan.is_pinned ? '<span class="plan-pin" title="Pinned plan" aria-label="Pinned">●</span>' : '') + '<span class="plan-title">' + escapeHtml(plan.title) + '</span></div><div class="plan-meta"><code>' + escapeHtml(plan.id.slice(0, 8)) + '</code><span>Updated ' + escapeHtml(formatDate(plan.updated_at)) + '</span></div></div>' +
         '<div class="plan-status">' + publicBadge + archiveBadge + '</div>' +
-        '<div class="plan-actions"><button class="plan-button plan-button-primary" type="button" data-action="preview" data-plan-id="' + escapeHtml(plan.id) + '" data-public="' + plan.is_public + '" data-slug="' + escapeHtml(plan.slug) + '" data-title="' + escapeHtml(plan.title) + '">' + previewLabel + '</button><button class="plan-button" type="button" data-action="pin-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + pinLabel + '</button><button class="plan-button" type="button" data-action="archive-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + archiveLabel + '</button><button class="plan-button plan-button-danger" type="button" data-action="delete" data-plan-id="' + escapeHtml(plan.id) + '">Delete</button></div>' +
+        '<div class="plan-actions"><button class="plan-button plan-button-primary" type="button" data-action="preview" data-plan-id="' + escapeHtml(plan.id) + '" data-public="' + plan.is_public + '" data-slug="' + escapeHtml(plan.slug) + '" data-title="' + escapeHtml(plan.title) + '">' + previewLabel + '</button><button class="plan-button" type="button" data-action="history" data-plan-id="' + escapeHtml(plan.id) + '" data-title="' + escapeHtml(plan.title) + '">History</button><button class="plan-button" type="button" data-action="pin-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + pinLabel + '</button><button class="plan-button" type="button" data-action="archive-plan" data-plan-id="' + escapeHtml(plan.id) + '">' + archiveLabel + '</button><button class="plan-button plan-button-danger" type="button" data-action="delete" data-plan-id="' + escapeHtml(plan.id) + '">Delete</button></div>' +
       '</article>';
     }
 
@@ -565,10 +594,115 @@
       $('preview-frame').srcdoc = '';
     }
 
+    let historyPlanId = null;
+    let historyPlanTitle = '';
+
+    function closeHistory() {
+      const dialog = $('history-modal');
+      if (dialog.open) dialog.close();
+      historyPlanId = null;
+      historyPlanTitle = '';
+    }
+
+    async function openHistory(planId, title) {
+      historyPlanId = planId;
+      historyPlanTitle = title || historyPlanTitle || 'Plan';
+      $('history-title').textContent = 'History — ' + historyPlanTitle;
+      $('history-body').innerHTML = '<div class="history-empty">Loading…</div>';
+      const dialog = $('history-modal');
+      if (!dialog.open) dialog.showModal();
+      try {
+        const response = await fetch(API + '/api/plans/' + encodeURIComponent(planId) + '/versions', { headers: headers() });
+        if (response.status === 401) { doLogout(true); return; }
+        if (!response.ok) throw new Error('Unable to load history');
+        const data = await response.json();
+
+        if (data.versioning_available === false) {
+          $('history-body').innerHTML = '<div class="history-empty">Version history is not enabled on this server yet.</div>';
+          return;
+        }
+
+        const versions = data.versions || [];
+        if (!versions.length) {
+          $('history-body').innerHTML = '<div class="history-empty">No previous versions yet.<br>Updating a plan stores the version before it.</div>';
+          return;
+        }
+
+        $('history-body').innerHTML = versions.map((entry) =>
+          '<div class="history-item">' +
+            '<span class="history-num">v' + escapeHtml(String(entry.version)) + '</span>' +
+            '<div class="history-info">' +
+              '<div class="history-note">' + escapeHtml(entry.note || entry.title || '') + '</div>' +
+              '<div class="history-meta">' + escapeHtml(formatDate(entry.created_at)) + ' · ' + (entry.size_bytes || 0).toLocaleString() + ' bytes</div>' +
+            '</div>' +
+            '<div class="history-actions">' +
+              '<button class="plan-button" type="button" data-action="diff-version" data-plan-id="' + escapeHtml(planId) + '" data-version="' + escapeHtml(String(entry.version)) + '">Diff</button>' +
+              '<button class="plan-button plan-button-primary" type="button" data-action="restore-version" data-plan-id="' + escapeHtml(planId) + '" data-version="' + escapeHtml(String(entry.version)) + '">Restore</button>' +
+            '</div>' +
+          '</div>'
+        ).join('');
+      } catch (error) {
+        $('history-body').innerHTML = '<div class="history-empty">' + escapeHtml(error.message || 'Unable to load history') + '</div>';
+      }
+    }
+
+    async function showVersionDiff(planId, version) {
+      const body = $('history-body');
+      body.innerHTML = '<div class="history-empty">Loading diff…</div>';
+      try {
+        const response = await fetch(API + '/api/plans/' + encodeURIComponent(planId) + '/diff?from=' + encodeURIComponent(version), { headers: headers() });
+        if (response.status === 401) { doLogout(true); return; }
+        if (!response.ok) throw new Error('Unable to diff');
+        const data = await response.json();
+        if (!data.changed) {
+          body.innerHTML = '<div class="history-empty">v' + escapeHtml(String(version)) + ' is identical to the current version.</div>';
+          return;
+        }
+        var lines = (data.diff || '').split('\n').map(function (line) {
+          var kind = 'ctx';
+          if (line.indexOf('+++') === 0 || line.indexOf('---') === 0) kind = 'meta';
+          else if (line.indexOf('+') === 0) kind = 'add';
+          else if (line.indexOf('-') === 0) kind = 'del';
+          else if (line.indexOf('@@') === 0) kind = 'hunk';
+          return '<div class="diff-line diff-' + kind + '">' + escapeHtml(line) + '</div>';
+        }).join('');
+        body.innerHTML =
+          '<div class="history-item">' +
+            '<span class="history-num">v' + escapeHtml(String(version)) + '</span>' +
+            '<div class="history-info"><div class="history-note">vs current</div>' +
+            '<div class="history-meta"><span class="diff-add">+' + data.added + '</span> <span class="diff-del">−' + data.removed + '</span></div></div>' +
+            '<div class="history-actions"><button class="plan-button" type="button" data-action="history" data-plan-id="' + escapeHtml(planId) + '">Back</button></div>' +
+          '</div>' +
+          '<div class="diff-view">' + lines + '</div>';
+      } catch (error) {
+        body.innerHTML = '<div class="history-empty">' + escapeHtml(error.message || 'Unable to diff') + '</div>';
+      }
+    }
+
+    async function restoreVersion(planId, version) {
+      if (!window.confirm('Restore this plan to v' + version + '? The current content is saved first, so this is reversible.')) return;
+      try {
+        const response = await fetch(API + '/api/plans/' + encodeURIComponent(planId) + '/versions/' + encodeURIComponent(version) + '/restore', { method: 'POST', headers: headers() });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          showToast(error.detail || 'Restore failed');
+          return;
+        }
+        closeHistory();
+        showToast('Restored to v' + version);
+        await loadPlans();
+      } catch (error) {
+        showToast('Connection error');
+      }
+    }
+
     async function handleAction(button) {
       const action = button.dataset.action;
       const id = button.dataset.planId;
       if (action === 'preview') return previewPlan(button);
+      if (action === 'history') return openHistory(id, button.dataset.title || historyPlanTitle);
+      if (action === 'restore-version') return restoreVersion(id, Number(button.dataset.version));
+      if (action === 'diff-version') return showVersionDiff(id, Number(button.dataset.version));
       if (action === 'delete') {
         if (!window.confirm('Delete this plan permanently?')) return;
         return requestAction('/api/plans/' + encodeURIComponent(id), { method: 'DELETE' }, 'Plan deleted');
@@ -657,6 +791,9 @@
     $('preview-close').addEventListener('click', closePreview);
     $('preview-modal').addEventListener('cancel', closePreview);
     $('preview-modal').addEventListener('close', () => { $('preview-frame').srcdoc = ''; });
+    $('history-close').addEventListener('click', closeHistory);
+    $('history-modal').addEventListener('cancel', closeHistory);
+    $('history-body').addEventListener('click', (event) => { const button = event.target.closest('button[data-action]'); if (button) handleAction(button); });
     $('search-input').addEventListener('input', (event) => { searchTerm = event.target.value.trim().toLowerCase(); renderPlans(); });
     document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
       activeFilter = button.dataset.filter;

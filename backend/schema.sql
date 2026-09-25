@@ -28,6 +28,19 @@ CREATE TABLE IF NOT EXISTS plans (
     FOREIGN KEY (project_id) REFERENCES projects(id)
 );
 
+CREATE TABLE IF NOT EXISTS plan_versions (
+    id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    html_content TEXT NOT NULL,
+    frontmatter JSON,
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE,
+    UNIQUE(plan_id, version)
+);
+
 CREATE TABLE IF NOT EXISTS project_pins (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

@@ -50,6 +50,31 @@ class Plan(models.Model):
         return self.title
 
 
+class PlanVersion(models.Model):
+    """Immutable snapshot of a plan's content at a point in time.
+
+    Versions are numbered per-plan starting at 1. A new version is written
+    *before* an update is applied, so it always holds the state that the
+    update replaced. `note` is an optional human label for manual snapshots.
+    """
+
+    id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    plan = fields.ForeignKeyField("models.Plan", related_name="versions", on_delete=fields.CASCADE)
+    version = fields.IntField()
+    title = fields.CharField(max_length=255)
+    html_content = fields.TextField()
+    frontmatter = fields.JSONField(null=True)
+    note = fields.CharField(max_length=255, null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "plan_versions"
+        unique_together = (("plan", "version"),)
+
+    def __str__(self):
+        return f"{self.plan} v{self.version}"
+
+
 class ProjectPin(models.Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
     user = fields.ForeignKeyField("models.User", related_name="project_pins", on_delete=fields.CASCADE)
