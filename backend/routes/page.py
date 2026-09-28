@@ -47,8 +47,18 @@ NAV_BAR = """<div style="position:fixed;top:0;left:0;right:0;z-index:9999;displa
 BODY_PADDING = "<style>body{padding-top:52px!important}</style>"
 
 
+def _inject_nav_bar(html: str) -> str:
+    """Insert the preview nav bar right after <body> (or at the top)."""
+    lower = html.lower()
+    body_idx = lower.find("<body>")
+    if body_idx != -1:
+        insert_pos = body_idx + len("<body>")
+        return html[:insert_pos] + NAV_BAR + BODY_PADDING + html[insert_pos:]
+    return NAV_BAR + html
+
+
 @router.get("/p/{slug}", response_class=HTMLResponse, tags=["public"])
-async def serve_public_plan(slug: str):
+async def serve_public_plan(slug: str, token: str = Query(None)):
     plan = await Plan.filter(slug=slug, is_public=True, is_archived=False).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -77,13 +87,11 @@ async def serve_public_plan(slug: str):
             insert_pos = head_idx + len("<head>")
             html = html[:insert_pos] + meta_tags + html[insert_pos:]
 
-    lower = html.lower()
-    body_idx = lower.find("<body>")
-    if body_idx != -1:
-        insert_pos = body_idx + len("<body>")
-        html = html[:insert_pos] + NAV_BAR + BODY_PADDING + html[insert_pos:]
-    else:
-        html = NAV_BAR + html
+    # Only signed-in viewers get the preview nav bar; anonymous visitors
+    # (anyone following a shared public link) see the plan unadorned.
+    user = await get_user_from_token(token)
+    if user:
+        html = _inject_nav_bar(html)
 
     return HTMLResponse(content=html)
 
@@ -122,13 +130,7 @@ async def serve_plan(slug: str, token: str = Query(None)):
             insert_pos = head_idx + len("<head>")
             html = html[:insert_pos] + meta_tags + html[insert_pos:]
 
-    lower = html.lower()
-    body_idx = lower.find("<body>")
-    if body_idx != -1:
-        insert_pos = body_idx + len("<body>")
-        html = html[:insert_pos] + NAV_BAR + BODY_PADDING + html[insert_pos:]
-    else:
-        html = NAV_BAR + html
+    html = _inject_nav_bar(html)
 
     return HTMLResponse(content=html)
 

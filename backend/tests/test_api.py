@@ -95,7 +95,12 @@ async def test_register_flow():
         rp_pub = await client.get(f"/p/{plan['slug']}")
         assert rp_pub.status_code == 200
         assert "hello" in rp_pub.text
-        assert "Dashboard" in rp_pub.text
+        # Anonymous visitors must not see the dashboard nav bar.
+        assert "Dashboard" not in rp_pub.text
+
+        rp_signed_in = await client.get(f"/p/{plan['slug']}?token={api_key}")
+        assert rp_signed_in.status_code == 200
+        assert "Dashboard" in rp_signed_in.text
 
 @pytest.mark.asyncio
 async def test_register_requires_password():

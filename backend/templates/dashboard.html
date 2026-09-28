@@ -607,7 +607,7 @@
     async function previewPlan(button) {
       const slug = button.dataset.slug;
       if (button.dataset.public === 'true') {
-        window.open(API + '/p/' + encodeURIComponent(slug), '_blank', 'noopener,noreferrer');
+        window.open(API + '/p/' + encodeURIComponent(slug) + '?token=' + encodeURIComponent(apiKey), '_blank', 'noopener,noreferrer');
       } else {
         window.open(API + '/plan/' + encodeURIComponent(slug) + '?token=' + encodeURIComponent(apiKey), '_blank', 'noopener,noreferrer');
       }
