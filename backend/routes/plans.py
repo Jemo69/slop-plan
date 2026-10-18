@@ -3,6 +3,7 @@ import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
+from tortoise.expressions import RawSQL
 from typing import Optional, List
 from db import User, Project, Plan, PlanPin, PlanVersion
 from routes.auth import get_current_user
@@ -117,6 +118,143 @@ async def list_plans(
 async def list_public_plans():
     plans = await Plan.filter(is_public=True).all()
     return PlanListResponse(plans=[to_response(p) for p in plans])
+
+
+class PlanSummaryResponse(BaseModel):
+    """A plan without its HTML body.
+
+    List and search endpoints return this instead of PlanResponse, so a client can
+    list or search an entire account without downloading every document. Opening a plan
+    only needs the slug, because plans are served as pages at /p/{slug}.
+    """
+
+    id: str
+    project_id: str
+    title: str
+    slug: str
+    url: str
+    description: str = ""
+    is_public: bool
+    is_archived: bool
+    is_pinned: bool = False
+    created_at: str
+    updated_at: str
+    size_bytes: int = 0
+
+
+class PlanSearchResponse(BaseModel):
+    plans: List[PlanSummaryResponse]
+    # Number of matches before `limit` was applied, so a client can tell "that was
+    # everything" from "there is more than you asked for".
+    total: int
+    query: str = ""
+
+
+def _summary(row: dict, pinned_ids: set) -> PlanSummaryResponse:
+    plan_id = str(row.get("id") or "")
+    slug = row.get("slug") or ""
+    frontmatter = row.get("frontmatter")
+    if not isinstance(frontmatter, dict):
+        frontmatter = {}
+    created_at = row.get("created_at")
+    updated_at = row.get("updated_at")
+    return PlanSummaryResponse(
+        id=plan_id,
+        project_id=str(row.get("project_id") or ""),
+        title=row.get("title") or "",
+        slug=slug,
+        url=f"/p/{slug}",
+        description=frontmatter.get("description") or "",
+        is_public=bool(row.get("is_public")),
+        is_archived=bool(row.get("is_archived")),
+        is_pinned=plan_id in pinned_ids,
+        created_at=created_at.isoformat() if created_at else "",
+        updated_at=updated_at.isoformat() if updated_at else "",
+        size_bytes=int(row.get("size_bytes") or 0),
+    )
+
+
+def _matches_summary(row: dict, terms: List[str]) -> bool:
+    frontmatter = row.get("frontmatter")
+    if not isinstance(frontmatter, dict):
+        frontmatter = {}
+    haystack = " ".join(
+        filter(
+            None,
+            [
+                row.get("title") or "",
+                row.get("slug") or "",
+                frontmatter.get("description") or "",
+            ],
+        )
+    ).lower()
+    return all(term in haystack for term in terms)
+
+
+# Declared before /{plan_id} on purpose. FastAPI matches routes in declaration order, so
+# a later route would let the literal path "search" be captured as a plan_id and
+# rejected as an invalid UUID.
+@router.get("/search", response_model=PlanSearchResponse)
+async def search_plans(
+    q: Optional[str] = Query(None, description="Free-text search over title, slug and description"),
+    project_id: Optional[str] = Query(None, description="Restrict to one project"),
+    include_archived: bool = Query(False, description="Include archived plans"),
+    limit: int = Query(50, description="Maximum number of plans to return (clamped to 1..200)"),
+    user: User = Depends(get_current_user),
+):
+    """Search the caller's plans by title, slug or description.
+
+    Returns metadata only - `html_content` is never serialised here, so searching an
+    account costs a few hundred bytes per plan instead of a full document.
+    """
+    limit = max(1, min(200, limit))
+    user_project_ids = await Project.filter(user_id=user.id).values_list("id", flat=True)
+    query = Plan.filter(project_id__in=list(user_project_ids))
+    if project_id:
+        query = query.filter(project_id=project_id)
+    if not include_archived:
+        query = query.filter(is_archived=False)
+
+    # LENGTH() in SQL rather than reading the column, so the documents never enter
+    # memory. Both SQLite and libSQL speak it. RawSQL rather than the ORM's Length(),
+    # which emits LENGTH(?) and then cannot bind a text field.
+    rows = await query.annotate(
+        size_bytes=RawSQL("LENGTH(html_content)")
+    ).values(
+        "id",
+        "project_id",
+        "title",
+        "slug",
+        "frontmatter",
+        "is_public",
+        "is_archived",
+        "created_at",
+        "updated_at",
+        "size_bytes",
+    )
+
+    # Normalised to str on both sides: the ORM hands back UUID objects for these
+    # columns, so comparing raw values would never match.
+    pinned_ids = {
+        str(pinned_id)
+        for pinned_id in await PlanPin.filter(user_id=user.id).values_list("plan_id", flat=True)
+    }
+
+    terms = [t for t in (q or "").lower().split() if t]
+    if terms:
+        rows = [row for row in rows if _matches_summary(row, terms)]
+
+    # Python's sort is stable, so sorting least-significant key first yields
+    # pinned-first, then most-recently-updated, then alphabetical by title.
+    rows.sort(key=lambda r: (r.get("title") or "").lower())
+    rows.sort(key=lambda r: r.get("updated_at") or r.get("created_at"), reverse=True)
+    rows.sort(key=lambda r: str(r.get("id") or "") not in pinned_ids)
+
+    return PlanSearchResponse(
+        plans=[_summary(row, pinned_ids) for row in rows[:limit]],
+        total=len(rows),
+        query=q or "",
+    )
 
 
 @router.post("", response_model=PlanResponse, status_code=201)

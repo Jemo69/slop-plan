@@ -528,3 +528,605 @@ async def test_archived_projects_visible_with_param():
         assert len(archived) == 1
         assert archived[0]["id"] == pid2
         assert archived[0]["is_archived"] is True
+
+
+# --- plan search -------------------------------------------------------
+
+
+async def _create_plan(
+    client, headers, project_id, title,
+    html_content="<p>body</p>", frontmatter=None, is_public=False,
+):
+    r = await client.post(
+        "/api/plans",
+        json={
+            "project_id": project_id,
+            "title": title,
+            "html_content": html_content,
+            "frontmatter": frontmatter,
+            "is_public": is_public,
+        },
+        headers=headers,
+    )
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+# The search payload is metadata only: an Android launcher calls it on every
+# keystroke, so `html_content` must never be present on any item.
+PLAN_SUMMARY_KEYS = {
+    "id", "project_id", "title", "slug", "url", "description",
+    "is_public", "is_archived", "is_pinned", "created_at", "updated_at",
+    "size_bytes",
+}
+
+
+@pytest.mark.asyncio
+async def test_search_matches_title_case_insensitively():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch1@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        target = await _create_plan(client, headers, pid, "Quarterly Roadmap")
+        await _create_plan(client, headers, pid, "Unrelated Notes")
+
+        for term in ("quarterly", "QUARTERLY", "RoAdMaP"):
+            r = await client.get("/api/plans/search", params={"q": term}, headers=headers)
+            assert r.status_code == 200, r.text
+            body = r.json()
+            assert body["query"] == term
+            assert [p["id"] for p in body["plans"]] == [target["id"]]
+            assert body["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_search_matches_slug_and_frontmatter_description():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch2@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        described = await _create_plan(
+            client, headers, pid, "Untitled Alpha",
+            frontmatter={"description": "Handles billing retries"},
+        )
+        await _create_plan(client, headers, pid, "Other Plan")
+
+        # description match
+        r = await client.get("/api/plans/search", params={"q": "RETRIES"}, headers=headers)
+        assert r.status_code == 200, r.text
+        assert [p["id"] for p in r.json()["plans"]] == [described["id"]]
+        # slug match
+        r = await client.get("/api/plans/search", params={"q": described["slug"]}, headers=headers)
+        assert r.status_code == 200, r.text
+        assert described["id"] in [p["id"] for p in r.json()["plans"]]
+        # description is surfaced, and defaults to "" when absent
+        hit = r.json()["plans"][0]
+        assert hit["description"] == "Handles billing retries"
+
+
+@pytest.mark.asyncio
+async def test_search_description_defaults_to_empty_string():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch3@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        await _create_plan(client, headers, pid, "No Frontmatter")
+        await _create_plan(client, headers, pid, "Empty Description", frontmatter={})
+
+        r = await client.get("/api/plans/search", params={"q": ""}, headers=headers)
+        assert r.status_code == 200, r.text
+        assert len(r.json()["plans"]) == 2
+        assert all(p["description"] == "" for p in r.json()["plans"])
+
+
+@pytest.mark.asyncio
+async def test_search_terms_are_anded():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch4@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        alpha = await _create_plan(
+            client, headers, pid, "Alpha Migration",
+            frontmatter={"description": "billing retries"},
+        )
+        beta = await _create_plan(
+            client, headers, pid, "Beta Migration",
+            frontmatter={"description": "storage cleanup"},
+        )
+
+        # Both terms hit the same plan -> it matches.
+        r = await client.get(
+            "/api/plans/search", params={"q": "migration billing"}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert [p["id"] for p in r.json()["plans"]] == [alpha["id"]]
+
+        # "migration" hits both, "storage" only hits beta -> only beta survives.
+        r = await client.get(
+            "/api/plans/search", params={"q": "migration storage"}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert [p["id"] for p in r.json()["plans"]] == [beta["id"]]
+
+        # No plan has both of these.
+        r = await client.get(
+            "/api/plans/search", params={"q": "alpha nonexistentterm"}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["plans"] == []
+        assert r.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_search_excludes_archived_by_default():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch5@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        live = await _create_plan(client, headers, pid, "Live Plan")
+        archived = await _create_plan(client, headers, pid, "Archived Plan")
+        r = await client.post(f"/api/plans/{archived['id']}/archive", headers=headers)
+        assert r.status_code == 200
+
+        r = await client.get("/api/plans/search", params={"q": "plan"}, headers=headers)
+        assert r.status_code == 200, r.text
+        ids = [p["id"] for p in r.json()["plans"]]
+        assert ids == [live["id"]]
+        assert r.json()["total"] == 1
+
+        r = await client.get(
+            "/api/plans/search", params={"q": "plan", "include_archived": True}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        ids = [p["id"] for p in r.json()["plans"]]
+        assert sorted(ids) == sorted([live["id"], archived["id"]])
+        assert r.json()["total"] == 2
+        by_id = {p["id"]: p for p in r.json()["plans"]}
+        assert by_id[live["id"]]["is_archived"] is False
+        assert by_id[archived["id"]]["is_archived"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_empty_query_returns_pinned_first():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch6@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        alpha = await _create_plan(client, headers, pid, "Alpha")
+        zulu = await _create_plan(client, headers, pid, "Zulu")
+
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["query"] == ""
+        # Nothing pinned yet, so this is plain updated_at descending: Zulu was
+        # created after Alpha.
+        assert [p["title"] for p in body["plans"]] == ["Zulu", "Alpha"]
+        assert all(p["is_pinned"] is False for p in body["plans"])
+
+        # Pin the *older* plan. Pinned-first has to beat updated_at descending,
+        # otherwise this assertion would pass without any pin logic at all.
+        rpin = await client.post(f"/api/plans/{alpha['id']}/pin", headers=headers)
+        assert rpin.status_code == 201
+
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200, r.text
+        plans = r.json()["plans"]
+        assert [p["title"] for p in plans] == ["Alpha", "Zulu"]
+        assert plans[0]["id"] == alpha["id"]
+        assert plans[0]["is_pinned"] is True
+        assert plans[1]["is_pinned"] is False
+
+        # Blank whitespace is treated as "no text filter", not as a literal term.
+        r = await client.get("/api/plans/search", params={"q": "   "}, headers=headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_search_sorts_by_updated_at_descending():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    from db import Plan
+    from datetime import datetime, timedelta, timezone
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch7@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        older = await _create_plan(client, headers, pid, "Alpha")
+        newer = await _create_plan(client, headers, pid, "Zulu")
+
+        base = datetime.now(timezone.utc) - timedelta(days=10)
+        await Plan.filter(id=older["id"]).update(updated_at=base)
+        await Plan.filter(id=newer["id"]).update(updated_at=base + timedelta(days=5))
+
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200, r.text
+        # Zulu is pinned-last alphabetically but updated most recently.
+        assert [p["title"] for p in r.json()["plans"]] == ["Zulu", "Alpha"]
+
+        # Same timestamp -> title ascending breaks the tie.
+        await Plan.filter(id=newer["id"]).update(updated_at=base)
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200, r.text
+        assert [p["title"] for p in r.json()["plans"]] == ["Alpha", "Zulu"]
+
+
+@pytest.mark.asyncio
+async def test_search_limit_truncates_but_total_counts_all_matches():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch8@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        for i in range(5):
+            await _create_plan(client, headers, pid, f"Widget Plan {i}")
+
+        r = await client.get("/api/plans/search", params={"q": "widget"}, headers=headers)
+        assert r.status_code == 200, r.text
+        assert len(r.json()["plans"]) == 5
+        assert r.json()["total"] == 5
+
+        r = await client.get(
+            "/api/plans/search", params={"q": "widget", "limit": 2}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert len(r.json()["plans"]) == 2
+        assert r.json()["total"] == 5
+
+        # limit is clamped, not rejected: 0 -> 1, 9999 -> 200.
+        r = await client.get(
+            "/api/plans/search", params={"q": "widget", "limit": 0}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert len(r.json()["plans"]) == 1
+        assert r.json()["total"] == 5
+
+        r = await client.get(
+            "/api/plans/search", params={"q": "widget", "limit": 9999}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        assert len(r.json()["plans"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_search_requires_authentication():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get("/api/plans/search", params={"q": "anything"})
+        assert r.status_code == 401
+
+        r = await client.get(
+            "/api/plans/search", params={"q": "anything"},
+            headers={"Authorization": "Bearer plan_bogus_key"},
+        )
+        assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_search_items_never_include_html_content():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch9@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        body = "<html>" + ("<p>filler</p>" * 500) + "</html>"
+        created = await _create_plan(
+            client, headers, pid, "Heavy Plan", html_content=body,
+            frontmatter={"description": "big one"}, is_public=True,
+        )
+
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200, r.text
+        plans = r.json()["plans"]
+        assert len(plans) == 1
+        item = plans[0]
+
+        assert "html_content" not in item
+        assert set(item.keys()) == PLAN_SUMMARY_KEYS
+        assert item["id"] == created["id"]
+        assert item["project_id"] == pid
+        assert item["title"] == "Heavy Plan"
+        assert item["slug"] == created["slug"]
+        assert item["url"] == f"/p/{created['slug']}"
+        assert item["description"] == "big one"
+        assert item["is_public"] is True
+        assert item["is_archived"] is False
+        assert item["is_pinned"] is False
+        assert item["created_at"]
+        assert item["updated_at"]
+        assert item["size_bytes"] == len(body)
+        # The response body is metadata only, not the megabyte HTML.
+        assert body not in r.text
+
+
+@pytest.mark.asyncio
+async def test_search_does_not_shadow_plan_id_route():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "srch10@example.com")
+        rp = await client.post("/api/projects", json={"name": "P"}, headers=headers)
+        pid = rp.json()["id"]
+        created = await _create_plan(client, headers, pid, "Route Check", html_content="<p>xy</p>")
+
+        # "/search" must not be swallowed by the /{plan_id} path parameter,
+        # which would answer 400 "Invalid plan_id format".
+        r = await client.get("/api/plans/search", params={"q": "route"}, headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["query"] == "route"
+        assert body["total"] == 1
+        assert body["plans"][0]["id"] == created["id"]
+        assert set(body) == {"plans", "total", "query"}
+
+        # The real plan-id route still resolves, body included.
+        rg = await client.get(f"/api/plans/{created['id']}", headers=headers)
+        assert rg.status_code == 200, rg.text
+        assert rg.json()["html_content"] == "<p>xy</p>"
+
+        # A genuinely malformed id is still rejected as before.
+        rbad = await client.get("/api/plans/not-a-uuid", headers=headers)
+        assert rbad.status_code == 400
+        assert "Invalid plan_id format" in rbad.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_search_scoped_to_caller_and_project():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        h1 = await _register_and_get_headers(client, "srch11a@example.com")
+        h2 = await _register_and_get_headers(client, "srch11b@example.com")
+
+        proj_a = (await client.post("/api/projects", json={"name": "A"}, headers=h1)).json()["id"]
+        proj_b = (await client.post("/api/projects", json={"name": "B"}, headers=h1)).json()["id"]
+        mine_a = await _create_plan(client, h1, proj_a, "Shared Term Alpha")
+        mine_b = await _create_plan(client, h1, proj_b, "Shared Term Beta")
+
+        # Another user owns a plan with the same matching term.
+        other_proj = (await client.post("/api/projects", json={"name": "Theirs"}, headers=h2)).json()["id"]
+        await _create_plan(client, h2, other_proj, "Shared Term Gamma")
+
+        r = await client.get("/api/plans/search", params={"q": "shared"}, headers=h1)
+        assert r.status_code == 200, r.text
+        ids = {p["id"] for p in r.json()["plans"]}
+        assert ids == {mine_a["id"], mine_b["id"]}
+
+        r = await client.get(
+            "/api/plans/search", params={"q": "shared", "project_id": proj_b}, headers=h1
+        )
+        assert r.status_code == 200, r.text
+        assert [p["id"] for p in r.json()["plans"]] == [mine_b["id"]]
+
+        # An unknown project filter simply matches nothing.
+        r = await client.get(
+            "/api/plans/search",
+            params={"q": "shared", "project_id": "00000000-0000-0000-0000-000000000000"},
+            headers=h1,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["plans"] == []
+        assert r.json()["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# GET /api/plans/search
+#
+# Search returns plan metadata only. The whole point of the endpoint is that a
+# client can search an account without downloading every html_content body.
+# ---------------------------------------------------------------------------
+
+
+async def _make_plan(client, headers, project_id, title, html="<p>x</p>", **extra):
+    payload = {"project_id": project_id, "title": title, "html_content": html}
+    payload.update(extra)
+    r = await client.post("/api/plans", json=payload, headers=headers)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+@pytest.mark.asyncio
+async def test_search_finds_plan_by_title_case_insensitively():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search1@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        await _make_plan(client, headers, pid, "Berlin Weekend")
+
+        r = await client.get("/api/plans/search?q=BERLIN", headers=headers)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total"] == 1
+        assert body["query"] == "BERLIN"
+        assert body["plans"][0]["title"] == "Berlin Weekend"
+        assert body["plans"][0]["url"] == "/p/berlin-weekend"
+
+
+@pytest.mark.asyncio
+async def test_search_finds_plan_by_frontmatter_description():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search2@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        await _make_plan(
+            client, headers, pid, "Untitled trip",
+            frontmatter={"description": "Three days around the Museumsinsel"},
+        )
+
+        r = await client.get("/api/plans/search?q=museumsinsel", headers=headers)
+        assert r.status_code == 200
+        plans = r.json()["plans"]
+        assert len(plans) == 1
+        assert plans[0]["description"] == "Three days around the Museumsinsel"
+
+
+@pytest.mark.asyncio
+async def test_search_ands_multiple_terms():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search3@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        await _make_plan(client, headers, pid, "Berlin weekend")
+        await _make_plan(client, headers, pid, "Paris long weekend")
+        await _make_plan(client, headers, pid, "Berlin city break")
+
+        both = await client.get("/api/plans/search?q=berlin%20weekend", headers=headers)
+        titles = sorted(p["title"] for p in both.json()["plans"])
+        assert titles == ["Berlin weekend"]
+
+        # A term nobody matches yields nothing rather than an OR.
+        nothing = await client.get("/api/plans/search?q=berlin%20atlantis", headers=headers)
+        assert nothing.json()["plans"] == []
+        assert nothing.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_search_excludes_archived_by_default():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search4@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        plan = await _make_plan(client, headers, pid, "Old itinerary")
+        await client.post(f"/api/plans/{plan['id']}/archive", headers=headers)
+
+        default = await client.get("/api/plans/search?q=itinerary", headers=headers)
+        assert default.json()["plans"] == []
+
+        included = await client.get(
+            "/api/plans/search?q=itinerary&include_archived=true", headers=headers
+        )
+        assert included.json()["total"] == 1
+        assert included.json()["plans"][0]["is_archived"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_empty_query_lists_pinned_first():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search5@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        await _make_plan(client, headers, pid, "Alpha")
+        pinned = await _make_plan(client, headers, pid, "Zulu")
+        await client.post(f"/api/plans/{pinned['id']}/pin", headers=headers)
+
+        r = await client.get("/api/plans/search", headers=headers)
+        assert r.status_code == 200
+        plans = r.json()["plans"]
+        assert [p["title"] for p in plans] == ["Zulu", "Alpha"]
+        assert plans[0]["is_pinned"] is True
+        assert plans[1]["is_pinned"] is False
+
+
+@pytest.mark.asyncio
+async def test_search_limit_truncates_but_total_reports_all_matches():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search6@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        for i in range(5):
+            await _make_plan(client, headers, pid, f"Itinerary {i}")
+
+        r = await client.get("/api/plans/search?q=itinerary&limit=2", headers=headers)
+        body = r.json()
+        assert len(body["plans"]) == 2
+        assert body["total"] == 5
+
+
+@pytest.mark.asyncio
+async def test_search_requires_authentication():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get("/api/plans/search?q=anything")
+        assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_search_response_never_contains_html_content():
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search7@example.com")
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        await _make_plan(client, headers, pid, "Secret document", html="<p>super secret</p>")
+
+        r = await client.get("/api/plans/search?q=secret", headers=headers)
+        assert "super secret" not in r.text
+        plan = r.json()["plans"][0]
+        assert "html_content" not in plan
+        # The length is still reported, so clients can show a size.
+        assert plan["size_bytes"] == len("<p>super secret</p>")
+
+
+@pytest.mark.asyncio
+async def test_search_route_does_not_shadow_get_plan():
+    """`/search` must not be captured by the `/{plan_id}` route."""
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = await _register_and_get_headers(client, "search8@example.com")
+
+        found = await client.get("/api/plans/search?q=x", headers=headers)
+        assert found.status_code == 200
+        assert found.json()["plans"] == []
+
+        # The pre-existing single-plan route must still behave.
+        rp = await client.post("/api/projects", json={"name": "Trips"}, headers=headers)
+        pid = rp.json()["id"]
+        plan = await _make_plan(client, headers, pid, "Still works")
+
+        one = await client.get(f"/api/plans/{plan['id']}", headers=headers)
+        assert one.status_code == 200
+        assert one.json()["title"] == "Still works"
+        # ...and it still carries the body the search endpoint withholds.
+        assert one.json()["html_content"] == "<p>x</p>"
