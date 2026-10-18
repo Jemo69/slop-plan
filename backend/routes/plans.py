@@ -3,7 +3,7 @@ import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
-from tortoise.expressions import RawSQL
+from tortoise.functions import Length
 from typing import Optional, List
 from db import User, Project, Plan, PlanPin, PlanVersion
 from routes.auth import get_current_user
@@ -216,10 +216,11 @@ async def search_plans(
         query = query.filter(is_archived=False)
 
     # LENGTH() in SQL rather than reading the column, so the documents never enter
-    # memory. Both SQLite and libSQL speak it. RawSQL rather than the ORM's Length(),
-    # which emits LENGTH(?) and then cannot bind a text field.
+    # memory. Both SQLite and libSQL speak it. The field is named as a string, which
+    # Tortoise renders as the quoted column LENGTH("html_content") - it does not bind
+    # it as a parameter, and Tortoise models expose no columns as class attributes.
     rows = await query.annotate(
-        size_bytes=RawSQL("LENGTH(html_content)")
+        size_bytes=Length("html_content")
     ).values(
         "id",
         "project_id",
