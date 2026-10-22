@@ -443,7 +443,63 @@ async def test_archive_page():
         r = await c.get("/archive")
         assert r.status_code == 200
         assert "Archive" in r.text
-        assert "PLANNER_ARCHIVE__" in r.text
+        assert "SLOP_PLANS_ARCHIVE__" in r.text
+
+
+@pytest.mark.asyncio
+async def test_api_returns_503_when_database_is_unavailable():
+    """A dead database must fail fast, not hang until the function timeout."""
+    import time
+
+    import main
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+
+    main._db_state["unavailable"] = True
+    main._db_state["reason"] = "test"
+    # Skip the periodic recheck so the request observes the broken state.
+    main._db_state["checked_at"] = time.monotonic()
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            r = await c.post(
+                "/api/auth/register", json={"email": "x@example.com", "password": "secret123"}
+            )
+            assert r.status_code == 503
+            assert r.json()["detail"] == "database unavailable"
+
+            # Static pages keep working while the database is down.
+            home = await c.get("/")
+            assert home.status_code == 200
+    finally:
+        main._db_state["unavailable"] = False
+        main._db_state["reason"] = ""
+
+
+@pytest.mark.asyncio
+async def test_database_recheck_clears_the_unavailable_flag():
+    """A recovered database must bring the API back without a redeploy."""
+    import time
+
+    import main
+    from httpx import AsyncClient, ASGITransport
+    from main import app
+
+    main._db_state["unavailable"] = True
+    main._db_state["reason"] = "test"
+    # Age the last check so the middleware is allowed to re-probe.
+    main._db_state["checked_at"] = time.monotonic() - 3600
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            r = await c.post(
+                "/api/auth/register", json={"email": "recover@example.com", "password": "secret123"}
+            )
+            assert r.status_code == 201
+            assert main._db_state["unavailable"] is False
+    finally:
+        main._db_state["unavailable"] = False
+        main._db_state["reason"] = ""
 
 
 @pytest.mark.asyncio

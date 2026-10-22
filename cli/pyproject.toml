@@ -1,7 +1,7 @@
 [project]
 name = "plan-cli"
 version = "0.2.2"
-description = "CLI tool for HTML Plan Service"
+description = "CLI tool for Slop Plans"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

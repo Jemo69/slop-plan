@@ -1,4 +1,4 @@
-# HTML Plan Service Backend
+# Slop Plans Backend
 
 A FastAPI backend for storing and serving HTML plans with Turso/libSQL support.
 

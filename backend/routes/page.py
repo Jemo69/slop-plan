@@ -21,7 +21,7 @@ async def get_user_from_token(token: str = Query(None)) -> User | None:
 
 @router.get("/health", tags=["health"])
 async def root():
-    return {"status": "ok", "service": "html-plan-service", "version": "0.1.0"}
+    return {"status": "ok", "service": "slop-plans", "version": "0.1.0"}
 
 
 @router.get("/favicon.ico", include_in_schema=False)

@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0a0a">
-  <title>{% block title %}HTML Planner{% endblock %}</title>
+  <title>{% block title %}Slop Plans{% endblock %}</title>
   <script>
     (() => {
-      const stored = localStorage.getItem('html_planner_theme');
+      const stored = localStorage.getItem('slop_plans_theme') || localStorage.getItem('html_planner_theme');
       const preferred = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.dataset.theme = preferred;
     })();

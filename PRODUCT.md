@@ -10,7 +10,7 @@ Solo developers who create, review, publish, and archive HTML plans from the CLI
 
 ## Product Purpose
 
-HTML Planner stores HTML plans, groups them by project, and makes review, publishing, preview, and archival workflows easy to manage. Success means a developer can move from a newly generated plan to a reviewed, shareable URL with minimal friction and clear state at every step.
+Slop Plans stores HTML plans, groups them by project, and makes review, publishing, preview, and archival workflows easy to manage. Success means a developer can move from a newly generated plan to a reviewed, shareable URL with minimal friction and clear state at every step.
 
 ## Brand Personality
 

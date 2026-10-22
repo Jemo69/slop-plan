@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}HTML Planner | Store and ship HTML plans{% endblock %}
+{% block title %}Slop Plans | Store and ship HTML plans{% endblock %}
 
 {% block body %}
 <style>
@@ -55,9 +55,9 @@
 
 <div class="home-shell">
   <header class="home-bar">
-    <a class="brand-lockup" href="/" aria-label="HTML Planner home">
-      <span class="brand-mark" aria-hidden="true">HP</span>
-      <span class="brand-name">HTML Planner</span>
+    <a class="brand-lockup" href="/" aria-label="Slop Plans home">
+      <span class="brand-mark" aria-hidden="true">SP</span>
+      <span class="brand-name">Slop Plans</span>
     </a>
     <nav class="home-nav" aria-label="Main navigation">
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><span id="theme-toggle-icon" class="theme-toggle-icon" aria-hidden="true">D</span><span id="theme-toggle-label">Dark mode</span></button>
@@ -94,7 +94,7 @@
   </main>
 
   <footer class="home-footer encase-label">
-    <span>HTML Planner / v0.1.0</span>
+    <span>Slop Plans / v0.1.0</span>
     <span>Built for developers</span>
   </footer>
 </div>
@@ -115,7 +115,7 @@
     toggle.addEventListener('click', () => {
       const nextTheme = root.dataset.theme === 'dark' ? 'light' : 'dark';
       root.dataset.theme = nextTheme;
-      localStorage.setItem('html_planner_theme', nextTheme);
+      localStorage.setItem('slop_plans_theme', nextTheme);
       syncThemeToggle();
     });
     syncThemeToggle();

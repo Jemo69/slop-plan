@@ -1,2 +1,2 @@
-"""HTML Plan Service CLI"""
+"""Slop Plans CLI"""
 __version__ = "0.2.2"

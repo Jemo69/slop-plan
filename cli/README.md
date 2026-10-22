@@ -1,6 +1,6 @@
 # Plan CLI
 
-CLI tool for HTML Plan Service - Create, manage, and share HTML plans.
+CLI tool for Slop Plans - Create, manage, and share HTML plans.
 
 ## Features
 
@@ -31,7 +31,7 @@ uv sync
 plan config show
 
 # Set API URL
-plan config set --api-url https://html-planner-server.fly.dev
+plan config set --api-url https://slop-plans.vercel.app
 
 # Get current API URL
 plan config get

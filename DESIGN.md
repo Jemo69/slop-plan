@@ -1,4 +1,4 @@
-# HTML Planner Design System
+# Slop Plans Design System
 
 ## Direction
 

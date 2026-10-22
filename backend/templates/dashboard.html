@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0a0a">
-  <title>Dashboard | HTML Planner</title>
+  <title>Dashboard | Slop Plans</title>
   <script>
     (() => {
-      const stored = localStorage.getItem('html_planner_theme');
+      const stored = localStorage.getItem('slop_plans_theme') || localStorage.getItem('html_planner_theme');
       const preferred = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.dataset.theme = preferred;
     })();
@@ -287,13 +287,13 @@
 </head>
 <body>
   <script>
-    window.__HTML_PLANNER_ARCHIVE__ = {{ 'true' if (archived|default(false)) else 'false' }};
+    window.__SLOP_PLANS_ARCHIVE__ = {{ 'true' if (archived|default(false)) else 'false' }};
   </script>
   <section id="login-view" class="auth-shell" hidden>
     <div class="auth-hero">
-      <a class="auth-brand" href="/" aria-label="HTML Planner home">
-        <span class="auth-mark" aria-hidden="true">HP</span>
-        <span class="auth-brand-name">HTML Planner</span>
+      <a class="auth-brand" href="/" aria-label="Slop Plans home">
+        <span class="auth-mark" aria-hidden="true">SP</span>
+        <span class="auth-brand-name">Slop Plans</span>
       </a>
       <div class="auth-hero-copy">
         <span class="encase-label" style="color:var(--accent);">Workspace access</span>
@@ -326,9 +326,9 @@
 
   <section id="app-view" class="app-shell" hidden>
     <header class="topbar">
-      <a class="topbar-brand" href="/dashboard" aria-label="HTML Planner dashboard">
-        <span class="topbar-mark" aria-hidden="true">HP</span>
-        <span class="topbar-name">HTML Planner</span>
+      <a class="topbar-brand" href="/dashboard" aria-label="Slop Plans dashboard">
+        <span class="topbar-mark" aria-hidden="true">SP</span>
+        <span class="topbar-name">Slop Plans</span>
       </a>
       <div class="topbar-right">
         <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><span id="theme-toggle-icon" class="theme-toggle-icon" aria-hidden="true">D</span><span id="theme-toggle-label">Dark mode</span></button>
@@ -405,7 +405,7 @@
 
   <script>
     const API = window.location.origin;
-    const IS_ARCHIVE = window.__HTML_PLANNER_ARCHIVE__ === true;
+    const IS_ARCHIVE = window.__SLOP_PLANS_ARCHIVE__ === true;
     let apiKey = localStorage.getItem('plan_api_key');
     let userEmail = localStorage.getItem('plan_email');
     let allPlans = [];
@@ -419,7 +419,7 @@
     const appView = $('app-view');
 
     function applyViewState() {
-      document.title = IS_ARCHIVE ? 'Archive | HTML Planner' : 'Dashboard | HTML Planner';
+      document.title = IS_ARCHIVE ? 'Archive | Slop Plans' : 'Dashboard | Slop Plans';
       $('workspace-title').textContent = IS_ARCHIVE ? 'Archive' : 'Dashboard';
       $('workspace-kicker').textContent = IS_ARCHIVE ? 'Plan archive / archived projects' : 'Plan inventory / live workspace';
       $('nav-dashboard').classList.toggle('active', !IS_ARCHIVE);
@@ -949,7 +949,7 @@
     themeToggle.addEventListener('click', () => {
       const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = nextTheme;
-      localStorage.setItem('html_planner_theme', nextTheme);
+      localStorage.setItem('slop_plans_theme', nextTheme);
       syncThemeToggle();
     });
     syncThemeToggle();

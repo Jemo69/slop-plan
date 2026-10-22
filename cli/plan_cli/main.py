@@ -18,7 +18,7 @@ console = Console()
 
 app = typer.Typer(
     name="plan",
-    help="HTML Plan Service CLI - Create, manage, and share HTML plans",
+    help="Slop Plans CLI - Create, manage, and share HTML plans",
     no_args_is_help=True,
 )
 
