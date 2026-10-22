@@ -25,6 +25,7 @@
       --warning: #c99100;
       --danger: #b42318;
       --radius: 10px;
+      --topbar-h: 68px;
       --z-dropdown: 20;
       --z-sticky: 30;
       --z-modal-backdrop: 40;
@@ -89,7 +90,7 @@
     .auth-error { min-height: 20px; margin: 0; color: var(--danger); font-size: 13px; font-weight: 700; }
 
     .app-shell { min-height: 100vh; }
-    .topbar { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 68px; padding: 12px 24px; border-bottom: 2px solid var(--line); background: var(--surface); }
+    .topbar { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: var(--topbar-h); padding: 12px 24px; border-bottom: 2px solid var(--line); background: var(--surface); }
     .topbar-brand { display: inline-flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
     .topbar-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid var(--line); border-radius: 7px; background: var(--ink); color: var(--accent); font-size: 10px; font-weight: 900; }
     .topbar-name { font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
@@ -97,8 +98,8 @@
     .topbar-email { max-width: 240px; overflow: hidden; color: var(--muted); font: 12px "SFMono-Regular", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
     .topbar-logout { min-height: 34px; padding: 0 12px; border: 2px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
     .topbar-logout:hover { background: var(--panel); }
-    .app-frame { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 68px); }
-    .sidebar { display: flex; flex-direction: column; gap: 22px; min-width: 0; padding: 22px 14px 20px; border-right: 2px solid var(--line); background: var(--panel); }
+    .app-frame { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - var(--topbar-h)); }
+    .sidebar { display: flex; flex-direction: column; gap: 22px; min-width: 0; height: calc(100vh - var(--topbar-h)); padding: 22px 14px 20px; border-right: 2px solid var(--line); background: var(--panel); position: sticky; top: var(--topbar-h); align-self: start; overflow-y: auto; }
     .sidebar-section { display: grid; gap: 4px; min-width: 0; }
     .sidebar-heading { padding: 0 8px 4px; color: var(--muted); }
     .sidebar-link { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 42px; padding: 0 10px; border: 2px solid transparent; border-radius: 8px; color: var(--ink); font-size: 12px; font-weight: 900; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
@@ -270,7 +271,7 @@
       .auth-hero-copy h1 { font-size: clamp(48px, 14vw, 72px); }
       .auth-panel { min-height: 520px; padding: 32px 24px 56px; }
       .app-frame { display: block; }
-      .sidebar { display: grid; gap: 12px; padding: 12px 14px; border-right: 0; border-bottom: 2px solid var(--line); }
+      .sidebar { position: static; height: auto; max-height: none; display: grid; gap: 12px; padding: 12px 14px; border-right: 0; border-bottom: 2px solid var(--line); overflow: visible; }
       .sidebar-section { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
       .sidebar-heading { padding: 0 6px 0 0; }
       .sidebar-link { min-height: 38px; padding: 0 10px; }
