@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO="Jemo69/html-planner-server"
+REPO="Jemo69/slop-plan"
 INSTALL_DIR="$HOME/.plan-cli"
 BIN_DIR="$HOME/.local/bin"
 

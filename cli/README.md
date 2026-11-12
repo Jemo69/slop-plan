@@ -12,7 +12,7 @@ CLI tool for Slop Plans - Create, manage, and share HTML plans.
 
 ```bash
 # One-line install
-curl -sSL https://raw.githubusercontent.com/Jemo69/html-planner-server/main/cli/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Jemo69/slop-plan/main/cli/install.sh | bash
 ```
 
 Or manually:
